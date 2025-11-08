@@ -1,4 +1,4 @@
-
+// app/workout/[id].tsx
 
 import React from "react";
 import {
@@ -16,7 +16,6 @@ import { workouts, Workout, Exercise } from "../../constants/workouts";
 export default function WorkoutExerciseScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const workoutId = Number(id);
-
   const workout: Workout | undefined = workouts.find(
     (w: Workout) => w.id === workoutId
   );
@@ -57,7 +56,7 @@ export default function WorkoutExerciseScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Image card with reps pill */}
+        {/* Image card */}
         <View style={styles.imageCardWrapper}>
           <ImageBackground
             source={exercise.image}
@@ -67,15 +66,14 @@ export default function WorkoutExerciseScreen() {
             <LinearGradient
               colors={
                 [
-                  "rgba(0,0,0,0.5)",
-                  "rgba(0,0,0,1)",
+                  "rgba(0,0,0,0.4)",
+                  "rgba(0,0,0,0.8)",
                 ] as const
               }
               start={{ x: 0.5, y: 0 }}
               end={{ x: 0.5, y: 1 }}
               style={styles.imageOverlay}
             />
-
             <View style={styles.repsPill}>
               <Text style={styles.repsText}>{exercise.reps}</Text>
             </View>
@@ -107,9 +105,12 @@ export default function WorkoutExerciseScreen() {
         <TouchableOpacity
           activeOpacity={0.9}
           style={styles.primaryButton}
-          onPress={() => {
-            // hook up exercise flow / next screen later
-          }}
+          onPress={() =>
+            router.push({
+              pathname: "/workout/session/[id]",
+              params: { id: String(workout.id) },
+            })
+          }
         >
           <Text style={styles.playIcon}>▶</Text>
           <Text style={styles.primaryButtonText}>Got it! Start Exercise</Text>
@@ -261,4 +262,3 @@ const styles = StyleSheet.create({
     marginTop: 40,
   },
 });
-

@@ -32,8 +32,8 @@ export default function HomeScreen() {
             <LinearGradient
               colors={
                 [
-                  "rgba(3,7,18,0)",
-                  "rgba(3,7,18,0.7)",
+                  "rgba(3,7,18,0.5)",
+                  "rgba(3,7,18,0.8)",
                   "rgba(3,7,18,1)",
                 ] as const
               }
