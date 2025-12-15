@@ -1,31 +1,160 @@
 // app/workout/session/[id].tsx
 
-import React from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Platform,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import {
-  CameraView,
-  useCameraPermissions,
-} from "expo-camera";
-import {
-  workouts,
-  Workout,
-  Exercise,
-} from "../../../constants/workouts";
+import { CameraView, useCameraPermissions } from "expo-camera";
+import * as ImageManipulator from "expo-image-manipulator";
+import { workouts, Workout, Exercise } from "../../../constants/workouts";
 
 export default function WorkoutSessionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const workoutId = Number(id);
-
   const [permission, requestPermission] = useCameraPermissions();
 
+  // -------------------------
+  // WebSocket + Streaming
+  // -------------------------
+  const cameraRef = useRef<CameraView | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const busyRef = useRef(false);
+  const frameIdRef = useRef(0);
+
+  const [wsConnected, setWsConnected] = useState(false);
+  const [streaming, setStreaming] = useState(false);
+
+  const [repCount, setRepCount] = useState<number | null>(null);
+  const [stage, setStage] = useState<string>("");
+
+  const WS_URL = useMemo(() => "wss://fyp-t6nc.onrender.com/ws/infer", []);
+
+  useEffect(() => {
+  let ws: WebSocket | null = null;
+  let stopped = false;
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const connect = () => {
+    if (stopped) return;
+
+    console.log("🔌 Trying WS connection...");
+    ws = new WebSocket("wss://fyp-t6nc.onrender.com/ws/infer");
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log("✅ WS CONNECTED");
+      setWsConnected(true);
+    };
+
+    ws.onmessage = (event) => {
+      console.log("📩 WS MESSAGE:", event.data);
+      try {
+        const data = JSON.parse(event.data);
+        if (typeof data.rep_count === "number") setRepCount(data.rep_count);
+        if (typeof data.stage === "string") setStage(data.stage);
+      } catch {}
+    };
+
+    ws.onerror = (e) => {
+      console.log("⚠️ WS ERROR", e);
+    };
+
+    ws.onclose = (e) => {
+      console.log("❌ WS CLOSED", e.code);
+      setWsConnected(false);
+      wsRef.current = null;
+
+      if (!stopped) {
+        retryTimer = setTimeout(connect, 1500);
+      }
+    };
+  };
+
+  connect();
+
+  return () => {
+    stopped = true;
+    if (retryTimer) clearTimeout(retryTimer);
+    if (ws) ws.close();
+  };
+}, []);
+
+
+  const startStreaming = () => {
+    if (streaming) return;
+    if (!wsRef.current || wsRef.current.readyState !== 1) return;
+
+    // Mobile only: we send frames using expo-camera
+    if (Platform.OS !== "web" && !cameraRef.current) return;
+
+    setStreaming(true);
+
+    intervalRef.current = setInterval(async () => {
+      if (busyRef.current) return;
+      busyRef.current = true;
+
+      try {
+        const ws = wsRef.current;
+        if (!ws || ws.readyState !== 1) return;
+
+        // WEB: show live camera only (no frame streaming yet)
+        if (Platform.OS === "web") return;
+
+        const cam = cameraRef.current;
+        if (!cam) return;
+
+        const photo = await cam.takePictureAsync({
+          base64: true,
+          quality: 0.35,
+          skipProcessing: true,
+        });
+
+        const resized = await ImageManipulator.manipulateAsync(
+          photo.uri,
+          [{ resize: { width: 320 } }],
+          {
+            compress: 0.5,
+            format: ImageManipulator.SaveFormat.JPEG,
+            base64: true,
+          }
+        );
+
+        if (!resized.base64) return;
+
+        ws.send(
+          JSON.stringify({
+            frame_id: ++frameIdRef.current,
+            ts: Date.now(),
+            image_b64: resized.base64,
+          })
+        );
+      } catch {
+      } finally {
+        busyRef.current = false;
+      }
+    }, 180);
+  };
+
+  const stopStreaming = () => {
+    setStreaming(false);
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = null;
+    busyRef.current = false;
+  };
+
+  useEffect(() => stopStreaming, []);
+
+  // -------------------------
+  // Workout lookup
+  // -------------------------
   const workout: Workout | undefined = workouts.find(
     (w: Workout) => w.id === workoutId
   );
@@ -48,22 +177,25 @@ export default function WorkoutSessionScreen() {
   const currentExercise: Exercise = workout.exercises[currentIndex];
   const totalExercises = workout.exercises.length;
 
-  const doneReps = 9;       // dummy
-  const totalReps = 15;     // dummy
-  const remainingReps = 6;  // dummy
-  const completion = 20;    // dummy % complete
+  // keep your original dummy fallback if backend not sending yet
+  const doneReps = repCount ?? 9;
+  const totalReps = 15; // dummy
+  const remainingReps = Math.max(totalReps - doneReps, 0);
+  const completion = 20; // dummy % complete
 
   const nextExercise: Exercise | undefined =
     workout.exercises[currentIndex + 1];
 
-  // Handle camera permission states
-  if (!permission) {
-    // still loading permission state
-    return <View style={styles.screen} />;
+  // Handle camera permission states (native)
+  if (Platform.OS !== "web") {
+    if (!permission) {
+      return <View style={styles.screen} />;
+    }
   }
 
   const renderCameraArea = () => {
-    if (!permission.granted) {
+    // Native permission gate
+    if (Platform.OS !== "web" && permission && !permission.granted) {
       return (
         <View style={[styles.cameraArea, styles.cameraPlaceholder]}>
           <Text style={styles.cameraPlaceholderText}>
@@ -79,12 +211,32 @@ export default function WorkoutSessionScreen() {
       );
     }
 
-    // Permission granted → show live camera preview
+    // WEB: use browser camera preview
+    if (Platform.OS === "web") {
+      return (
+        <View style={{ position: "relative" }}>
+          <WebCamera style={styles.cameraArea} />
+          <View style={styles.cameraHud}>
+            <Text style={styles.cameraHudText}>
+              WS: {wsConnected ? "connected" : "disconnected"}
+            </Text>
+            <Text style={styles.cameraHudText}>Stage: {stage || "-"}</Text>
+          </View>
+        </View>
+      );
+    }
+
+    // Native: show live camera preview
     return (
-      <CameraView
-        style={styles.cameraArea}
-        facing="front" 
-      />
+      <View style={{ position: "relative" }}>
+        <CameraView ref={cameraRef} style={styles.cameraArea} facing="front" />
+        <View style={styles.cameraHud}>
+          <Text style={styles.cameraHudText}>
+            WS: {wsConnected ? "connected" : "disconnected"}
+          </Text>
+          <Text style={styles.cameraHudText}>Stage: {stage || "-"}</Text>
+        </View>
+      </View>
     );
   };
 
@@ -102,9 +254,18 @@ export default function WorkoutSessionScreen() {
 
           <Text style={styles.headerTitle}>{workout.title}</Text>
 
-          <View style={styles.cameraButton}>
-            <Ionicons name="camera-outline" size={18} color="#FFFFFF" />
-          </View>
+          {/* Keep your red camera button, but make it start/stop streaming */}
+          <TouchableOpacity
+            style={[styles.cameraButton, !wsConnected && { opacity: 0.5 }]}
+            disabled={!wsConnected}
+            onPress={() => (streaming ? stopStreaming() : startStreaming())}
+          >
+            <Ionicons
+              name={streaming ? "stop-circle-outline" : "camera-outline"}
+              size={18}
+              color="#FFFFFF"
+            />
+          </TouchableOpacity>
         </View>
 
         {/* Camera area */}
@@ -150,43 +311,89 @@ export default function WorkoutSessionScreen() {
             </Text>
           </View>
 
-          {/* Motivational button */}
+          {/* Motivational button (kept) */}
           <TouchableOpacity
             activeOpacity={0.9}
             style={[styles.actionButton, styles.keepGoingButton]}
-            onPress={() => {
-              // later: update reps / go next
-            }}
+            onPress={() => {}}
           >
             <Text style={styles.actionButtonText}>
               🔥 Just 10 more! You got this!
             </Text>
           </TouchableOpacity>
 
-          {/* Pause button */}
+          {/* Pause button (kept) */}
           <TouchableOpacity
             activeOpacity={0.9}
             style={[styles.actionButton, styles.pauseButton]}
-            onPress={() => {
-              // later: pause logic
-            }}
+            onPress={() => {}}
           >
             <Text style={styles.actionButtonText}>⏸️ Pause Workout</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Coming Up Next */}
+        {/* Coming Up Next (kept) */}
         <View style={styles.nextSection}>
           <Text style={styles.nextLabel}>Coming Up Next:</Text>
           {nextExercise ? (
-            <Text style={styles.nextText}>
-              {nextExercise.name} - 10 reps
-            </Text>
+            <Text style={styles.nextText}>{nextExercise.name} - 10 reps</Text>
           ) : (
             <Text style={styles.nextText}>Finish Strong 💪</Text>
           )}
         </View>
       </ScrollView>
+    </View>
+  );
+}
+
+/* ===================== WEB CAMERA COMPONENT ===================== */
+function WebCamera({ style }: { style: any }) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+
+    const start = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user" },
+          audio: false,
+        });
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+        }
+      } catch (e: any) {
+        setError(e?.message || "Camera blocked (needs HTTPS or localhost)");
+      }
+    };
+
+    start();
+
+    return () => {
+      if (stream) stream.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
+
+  if (error) {
+    return (
+      <View style={[style, styles.cameraPlaceholder]}>
+        <Text style={styles.cameraPlaceholderText}>{error}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={style}>
+      {/* @ts-ignore */}
+      <video
+        ref={videoRef}
+        playsInline
+        muted
+        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+      />
     </View>
   );
 }
@@ -220,15 +427,30 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
- cameraArea: {
-    height: 260,           
+  cameraArea: {
+    height: 540,
     borderRadius: 16,
     overflow: "hidden",
     backgroundColor: "#000000",
-    marginBottom: 24,      
+    marginBottom: 24,
   },
- 
-
+  cameraHud: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    right: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    pointerEvents: "none",
+  },
+  cameraHudText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
 
   progressRow: {
     flexDirection: "row",
@@ -245,6 +467,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: 8,
     textAlign: "center",
+    paddingHorizontal: 14,
   },
   cameraPermissionButton: {
     paddingHorizontal: 14,
@@ -257,7 +480,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
   },
- 
+
   progressText: {
     color: "#9CA3AF",
     fontSize: 11,
