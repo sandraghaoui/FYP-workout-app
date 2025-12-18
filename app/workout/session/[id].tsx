@@ -15,6 +15,32 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import * as ImageManipulator from "expo-image-manipulator";
 import { workouts, Workout, Exercise } from "../../../constants/workouts";
 
+/* ===================== TYPES ===================== */
+
+type FrameStatePayload = {
+  tracking?: {
+    status?: "ok" | "unstable" | "lost";
+    lost_frames?: number;
+    confidence?: number;
+    reason?: string;
+  };
+  rep_state?: {
+    reps?: number;
+    phase?: string;
+  };
+  feedback?: {
+    cues?: string[];
+    metrics?: Record<string, any>;
+  };
+};
+
+type WSMessage =
+  | { frame_id?: number; error: string }
+  | { frame_id?: number; type: "frame_state"; payload: FrameStatePayload }
+  | { frame_id?: number; rep_count?: number; stage?: string }; // legacy fallback
+
+/* ===================== SCREEN ===================== */
+
 export default function WorkoutSessionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const workoutId = Number(id);
@@ -29,128 +55,32 @@ export default function WorkoutSessionScreen() {
   const busyRef = useRef(false);
   const frameIdRef = useRef(0);
 
+  // WEB refs for streaming (use any to avoid DOM typings problems in RN TS)
+  const webVideoRef = useRef<any>(null);
+  const webCanvasRef = useRef<any>(null);
+
   const [wsConnected, setWsConnected] = useState(false);
   const [streaming, setStreaming] = useState(false);
 
+  // Backend-reflected state
   const [repCount, setRepCount] = useState<number | null>(null);
-  const [stage, setStage] = useState<string>("");
+  const [stage, setStage] = useState<string>("-");
+  const [trackingStatus, setTrackingStatus] = useState<"ok" | "unstable" | "lost">(
+    "lost"
+  );
+  const [trackingConf, setTrackingConf] = useState<number>(0);
+  const [trackingReason, setTrackingReason] = useState<string>("-");
+  const [lostFrames, setLostFrames] = useState<number>(0);
+  const [cues, setCues] = useState<string[]>([]);
 
+  // Debug snippet (small)
+  const [lastMsgType, setLastMsgType] = useState<string>("-");
+  const [lastRawShort, setLastRawShort] = useState<string>("");
+
+  // -------------------------
+  // WS URL
+  // -------------------------
   const WS_URL = useMemo(() => "wss://fyp-t6nc.onrender.com/ws/infer", []);
-
-  useEffect(() => {
-  let ws: WebSocket | null = null;
-  let stopped = false;
-  let retryTimer: ReturnType<typeof setTimeout> | null = null;
-
-  const connect = () => {
-    if (stopped) return;
-
-    console.log("🔌 Trying WS connection...");
-    ws = new WebSocket("wss://fyp-t6nc.onrender.com/ws/infer");
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      console.log("✅ WS CONNECTED");
-      setWsConnected(true);
-    };
-
-    ws.onmessage = (event) => {
-      console.log("📩 WS MESSAGE:", event.data);
-      try {
-        const data = JSON.parse(event.data);
-        if (typeof data.rep_count === "number") setRepCount(data.rep_count);
-        if (typeof data.stage === "string") setStage(data.stage);
-      } catch {}
-    };
-
-    ws.onerror = (e) => {
-      console.log("⚠️ WS ERROR", e);
-    };
-
-    ws.onclose = (e) => {
-      console.log("❌ WS CLOSED", e.code);
-      setWsConnected(false);
-      wsRef.current = null;
-
-      if (!stopped) {
-        retryTimer = setTimeout(connect, 1500);
-      }
-    };
-  };
-
-  connect();
-
-  return () => {
-    stopped = true;
-    if (retryTimer) clearTimeout(retryTimer);
-    if (ws) ws.close();
-  };
-}, []);
-
-
-  const startStreaming = () => {
-    if (streaming) return;
-    if (!wsRef.current || wsRef.current.readyState !== 1) return;
-
-    // Mobile only: we send frames using expo-camera
-    if (Platform.OS !== "web" && !cameraRef.current) return;
-
-    setStreaming(true);
-
-    intervalRef.current = setInterval(async () => {
-      if (busyRef.current) return;
-      busyRef.current = true;
-
-      try {
-        const ws = wsRef.current;
-        if (!ws || ws.readyState !== 1) return;
-
-        // WEB: show live camera only (no frame streaming yet)
-        if (Platform.OS === "web") return;
-
-        const cam = cameraRef.current;
-        if (!cam) return;
-
-        const photo = await cam.takePictureAsync({
-          base64: true,
-          quality: 0.35,
-          skipProcessing: true,
-        });
-
-        const resized = await ImageManipulator.manipulateAsync(
-          photo.uri,
-          [{ resize: { width: 320 } }],
-          {
-            compress: 0.5,
-            format: ImageManipulator.SaveFormat.JPEG,
-            base64: true,
-          }
-        );
-
-        if (!resized.base64) return;
-
-        ws.send(
-          JSON.stringify({
-            frame_id: ++frameIdRef.current,
-            ts: Date.now(),
-            image_b64: resized.base64,
-          })
-        );
-      } catch {
-      } finally {
-        busyRef.current = false;
-      }
-    }, 180);
-  };
-
-  const stopStreaming = () => {
-    setStreaming(false);
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = null;
-    busyRef.current = false;
-  };
-
-  useEffect(() => stopStreaming, []);
 
   // -------------------------
   // Workout lookup
@@ -172,12 +102,22 @@ export default function WorkoutSessionScreen() {
     );
   }
 
-  // To replace afterwards when backend done
+  // MVP: first exercise
   const currentIndex = 0;
   const currentExercise: Exercise = workout.exercises[currentIndex];
   const totalExercises = workout.exercises.length;
 
-  // keep your original dummy fallback if backend not sending yet
+  // Map workout exercise name -> backend mode
+  const backendMode = useMemo(() => {
+    const name = (currentExercise?.name || "").toLowerCase();
+    if (name.includes("squat")) return "squat";
+    if (name.includes("push")) return "pushup";
+    if (name.includes("curl")) return "curl";
+    if (name.includes("crunch")) return "crunch";
+    return "squat";
+  }, [currentExercise?.name]);
+
+  // Keep original dummy fallback if backend not sending yet
   const doneReps = repCount ?? 9;
   const totalReps = 15; // dummy
   const remainingReps = Math.max(totalReps - doneReps, 0);
@@ -186,11 +126,215 @@ export default function WorkoutSessionScreen() {
   const nextExercise: Exercise | undefined =
     workout.exercises[currentIndex + 1];
 
-  // Handle camera permission states (native)
+  // -------------------------
+  // WS connect with auto-retry
+  // -------------------------
+  useEffect(() => {
+    let ws: WebSocket | null = null;
+    let stopped = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const connect = () => {
+      if (stopped) return;
+
+      ws = new WebSocket(WS_URL);
+      wsRef.current = ws;
+
+      ws.onopen = () => setWsConnected(true);
+
+      ws.onmessage = (event) => {
+        const raw = String((event as any).data || "");
+        setLastRawShort(raw.slice(0, 160));
+
+        try {
+          const msg: WSMessage = JSON.parse(raw);
+
+          if ((msg as any)?.error) {
+            setLastMsgType("error");
+            return;
+          }
+
+          // New format
+          if ((msg as any)?.type === "frame_state" && (msg as any)?.payload) {
+            setLastMsgType("frame_state");
+            const p = (msg as any).payload as FrameStatePayload;
+
+            const reps = p?.rep_state?.reps;
+            const phase = p?.rep_state?.phase;
+
+            const status = p?.tracking?.status;
+            const conf = p?.tracking?.confidence;
+            const reason = p?.tracking?.reason;
+            const lf = p?.tracking?.lost_frames;
+            const newCues = p?.feedback?.cues;
+
+            if (typeof reps === "number") setRepCount(reps);
+            if (typeof phase === "string") setStage(phase);
+
+            if (status === "ok" || status === "unstable" || status === "lost")
+              setTrackingStatus(status);
+            if (typeof conf === "number") setTrackingConf(conf);
+            if (typeof reason === "string" && reason.length)
+              setTrackingReason(reason);
+            if (typeof lf === "number") setLostFrames(lf);
+            if (Array.isArray(newCues)) setCues(newCues);
+
+            return;
+          }
+
+          // Legacy fallback
+          if (
+            typeof (msg as any)?.rep_count === "number" ||
+            typeof (msg as any)?.stage === "string"
+          ) {
+            setLastMsgType("legacy(rep_count/stage)");
+            const m: any = msg;
+
+            if (typeof m.rep_count === "number") setRepCount(m.rep_count);
+            if (typeof m.stage === "string") setStage(m.stage);
+
+            setTrackingStatus("ok");
+            setTrackingConf(1);
+            setTrackingReason("legacy_backend_no_tracking_fields");
+            setLostFrames(0);
+            return;
+          }
+
+          setLastMsgType(
+            (msg as any)?.type ? String((msg as any).type) : "unknown_json"
+          );
+        } catch {
+          setLastMsgType("non_json");
+        }
+      };
+
+      ws.onclose = () => {
+        setWsConnected(false);
+        wsRef.current = null;
+        if (!stopped) retryTimer = setTimeout(connect, 1500);
+      };
+    };
+
+    connect();
+
+    return () => {
+      stopped = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      if (ws) ws.close();
+    };
+  }, [WS_URL]);
+
+  // -------------------------
+  // Frame send helpers
+  // -------------------------
+  const sendFrameToWS = (base64Jpeg: string) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== 1) return;
+
+    // avoid lag
+    if (ws.bufferedAmount > 1_000_000) return;
+
+    ws.send(
+      JSON.stringify({
+        frame_id: ++frameIdRef.current,
+        ts: Date.now(),
+        mode: backendMode,
+        // send as Data URL for maximum decode compatibility
+        image_b64: base64Jpeg.startsWith("data:")
+          ? base64Jpeg
+          : `data:image/jpeg;base64,${base64Jpeg}`,
+      })
+    );
+  };
+
+  // -------------------------
+  // Start / Stop streaming
+  // -------------------------
+  const startStreaming = () => {
+    if (streaming) return;
+    if (!wsRef.current || wsRef.current.readyState !== 1) return;
+
+    setStreaming(true);
+
+    intervalRef.current = setInterval(async () => {
+      if (busyRef.current) return;
+      busyRef.current = true;
+
+      try {
+        // WEB streaming: capture from <video> into <canvas>
+        if (Platform.OS === "web") {
+          const vid = webVideoRef.current;
+          const canvas = webCanvasRef.current;
+          if (!vid || !canvas) return;
+
+          // wait for metadata
+          if (!vid.videoWidth || !vid.videoHeight) return;
+
+          const targetW = 480;
+          const scale = targetW / vid.videoWidth;
+          const targetH = Math.round(vid.videoHeight * scale);
+
+          canvas.width = targetW;
+          canvas.height = targetH;
+
+          const ctx = canvas.getContext?.("2d");
+          if (!ctx) return;
+
+          // Mirror horizontally for "front camera" feel
+          ctx.save();
+          ctx.translate(targetW, 0);
+          ctx.scale(-1, 1);
+          ctx.drawImage(vid, 0, 0, targetW, targetH);
+          ctx.restore();
+
+          // Lower quality to reduce bandwidth
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.6);
+          sendFrameToWS(dataUrl);
+          return;
+        }
+
+        // NATIVE streaming: takePictureAsync + resize
+        const cam = cameraRef.current;
+        if (!cam) return;
+
+        const photo = await cam.takePictureAsync({
+          base64: true,
+          quality: 0.6,
+          skipProcessing: false, // IMPORTANT: helps orientation/compat
+        });
+
+        const resized = await ImageManipulator.manipulateAsync(
+          photo.uri,
+          [{ resize: { width: 480 } }],
+          {
+            compress: 0.65,
+            format: ImageManipulator.SaveFormat.JPEG,
+            base64: true,
+          }
+        );
+
+        if (!resized.base64) return;
+        sendFrameToWS(resized.base64);
+      } finally {
+        busyRef.current = false;
+      }
+    }, 180);
+  };
+
+  const stopStreaming = () => {
+    setStreaming(false);
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = null;
+    busyRef.current = false;
+  };
+
+  useEffect(() => stopStreaming, []);
+
+  // -------------------------
+  // Camera permission states (native)
+  // -------------------------
   if (Platform.OS !== "web") {
-    if (!permission) {
-      return <View style={styles.screen} />;
-    }
+    if (!permission) return <View style={styles.screen} />;
   }
 
   const renderCameraArea = () => {
@@ -211,30 +355,84 @@ export default function WorkoutSessionScreen() {
       );
     }
 
-    // WEB: use browser camera preview
+    // WEB: browser camera preview (with refs for capture)
     if (Platform.OS === "web") {
       return (
         <View style={{ position: "relative" }}>
-          <WebCamera style={styles.cameraArea} />
+          <WebCamera style={styles.cameraArea} videoRef={webVideoRef} />
+
+          {/* hidden canvas for capture */}
+          {/* @ts-ignore */}
+          <canvas ref={webCanvasRef} style={{ display: "none" }} />
+
           <View style={styles.cameraHud}>
             <Text style={styles.cameraHudText}>
               WS: {wsConnected ? "connected" : "disconnected"}
             </Text>
+            <Text style={styles.cameraHudText}>
+              Track: {trackingStatus} ({trackingConf.toFixed(2)})
+            </Text>
+            <Text style={styles.cameraHudText}>Reason: {trackingReason}</Text>
+            <Text style={styles.cameraHudText}>Lost: {lostFrames}</Text>
             <Text style={styles.cameraHudText}>Stage: {stage || "-"}</Text>
+          </View>
+
+          {cues.length > 0 && (
+            <View style={styles.cuesBox}>
+              {cues.slice(0, 2).map((c, i) => (
+                <Text key={i} style={styles.cueText}>
+                  • {c}
+                </Text>
+              ))}
+            </View>
+          )}
+
+          <View style={styles.debugBox}>
+            <Text style={styles.debugText}>
+              {lastMsgType} | {backendMode} | {streaming ? "streaming" : "idle"}
+            </Text>
+            <Text style={styles.debugText} numberOfLines={2}>
+              {lastRawShort}
+            </Text>
           </View>
         </View>
       );
     }
 
-    // Native: show live camera preview
+    // Native: live camera preview
     return (
       <View style={{ position: "relative" }}>
         <CameraView ref={cameraRef} style={styles.cameraArea} facing="front" />
+
         <View style={styles.cameraHud}>
           <Text style={styles.cameraHudText}>
             WS: {wsConnected ? "connected" : "disconnected"}
           </Text>
+          <Text style={styles.cameraHudText}>
+            Track: {trackingStatus} ({trackingConf.toFixed(2)})
+          </Text>
+          <Text style={styles.cameraHudText}>Reason: {trackingReason}</Text>
+          <Text style={styles.cameraHudText}>Lost: {lostFrames}</Text>
           <Text style={styles.cameraHudText}>Stage: {stage || "-"}</Text>
+        </View>
+
+        {cues.length > 0 && (
+          <View style={styles.cuesBox}>
+            {cues.slice(0, 2).map((c, i) => (
+              <Text key={i} style={styles.cueText}>
+                • {c}
+              </Text>
+            ))}
+          </View>
+        )}
+
+        <View style={styles.debugBox}>
+          <Text style={styles.debugText}>
+            {lastMsgType} | {backendMode} | {streaming ? "streaming" : "idle"}
+          </Text>
+          <Text style={styles.debugText} numberOfLines={2}>
+            {lastRawShort}
+          </Text>
         </View>
       </View>
     );
@@ -254,7 +452,7 @@ export default function WorkoutSessionScreen() {
 
           <Text style={styles.headerTitle}>{workout.title}</Text>
 
-          {/* Keep your red camera button, but make it start/stop streaming */}
+          {/* Keep your red camera button */}
           <TouchableOpacity
             style={[styles.cameraButton, !wsConnected && { opacity: 0.5 }]}
             disabled={!wsConnected}
@@ -307,7 +505,9 @@ export default function WorkoutSessionScreen() {
               <Text style={styles.formTipLabel}>Form Tip:</Text>
             </View>
             <Text style={styles.formTipText}>
-              {currentExercise.tips[0] || "Maintain proper form throughout."}
+              {cues[0] ||
+                currentExercise.tips[0] ||
+                "Maintain proper form throughout."}
             </Text>
           </View>
 
@@ -347,16 +547,27 @@ export default function WorkoutSessionScreen() {
 }
 
 /* ===================== WEB CAMERA COMPONENT ===================== */
-function WebCamera({ style }: { style: any }) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+function WebCamera({
+  style,
+  videoRef,
+}: {
+  style: any;
+  videoRef: React.MutableRefObject<any>;
+}) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    let stream: MediaStream | null = null;
+    let stream: any = null;
 
     const start = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
+        const nav: any = (globalThis as any)?.navigator;
+        if (!nav?.mediaDevices?.getUserMedia) {
+          setError("Camera not available in this browser context.");
+          return;
+        }
+
+        stream = await nav.mediaDevices.getUserMedia({
           video: { facingMode: "user" },
           audio: false,
         });
@@ -373,9 +584,9 @@ function WebCamera({ style }: { style: any }) {
     start();
 
     return () => {
-      if (stream) stream.getTracks().forEach((t) => t.stop());
+      if (stream?.getTracks) stream.getTracks().forEach((t: any) => t.stop());
     };
-  }, []);
+  }, [videoRef]);
 
   if (error) {
     return (
@@ -389,7 +600,10 @@ function WebCamera({ style }: { style: any }) {
     <View style={style}>
       {/* @ts-ignore */}
       <video
-        ref={videoRef}
+        ref={(el) => {
+          // IMPORTANT: must return void (not el) to satisfy React ref typing
+          videoRef.current = el;
+        }}
         playsInline
         muted
         style={{ width: "100%", height: "100%", objectFit: "cover" }}
@@ -434,28 +648,66 @@ const styles = StyleSheet.create({
     backgroundColor: "#000000",
     marginBottom: 24,
   },
+
   cameraHud: {
     position: "absolute",
     top: 10,
     left: 10,
     right: 10,
-    flexDirection: "row",
-    justifyContent: "space-between",
+    flexDirection: "column",
+    alignItems: "flex-start",
+    gap: 6,
     pointerEvents: "none",
   },
   cameraHudText: {
     color: "#FFFFFF",
     fontSize: 12,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0,0,0,0.6)",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 10,
+  },
+
+  cuesBox: {
+    position: "absolute",
+    bottom: 14,
+    left: 14,
+    right: 14,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    pointerEvents: "none",
+  },
+  cueText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    marginBottom: 4,
+  },
+
+  debugBox: {
+    position: "absolute",
+    bottom: 14,
+    right: 14,
+    width: 190,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    borderRadius: 12,
+    padding: 8,
+    pointerEvents: "none",
+  },
+  debugText: {
+    color: "#CBD5E1",
+    fontSize: 10,
   },
 
   progressRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 12,
+  },
+  progressText: {
+    color: "#9CA3AF",
+    fontSize: 11,
   },
 
   cameraPlaceholder: {
@@ -481,10 +733,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 
-  progressText: {
-    color: "#9CA3AF",
-    fontSize: 11,
-  },
   exerciseCard: {
     backgroundColor: "#050B16",
     borderRadius: 22,
