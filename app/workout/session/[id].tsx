@@ -1,19 +1,19 @@
 // app/workout/session/[id].tsx
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Platform,
-} from "react-native";
-import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as ImageManipulator from "expo-image-manipulator";
-import { workouts, Workout, Exercise } from "../../../constants/workouts";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { Exercise, Workout, workouts } from "../../../constants/workouts";
 
 /* ===================== TYPES ===================== */
 
@@ -76,6 +76,7 @@ export default function WorkoutSessionScreen() {
   // Debug snippet (small)
   const [lastMsgType, setLastMsgType] = useState<string>("-");
   const [lastRawShort, setLastRawShort] = useState<string>("");
+  const [lastParsedRep, setLastParsedRep] = useState<{ v: number; frame?: number } | null>(null);
 
   // -------------------------
   // WS URL
@@ -144,7 +145,8 @@ export default function WorkoutSessionScreen() {
 
       ws.onmessage = (event) => {
         const raw = String((event as any).data || "");
-        setLastRawShort(raw.slice(0, 160));
+        // keep a longer preview for debugging rep updates
+        setLastRawShort(raw.slice(0, 1000));
 
         try {
           const msg: WSMessage = JSON.parse(raw);
@@ -159,23 +161,42 @@ export default function WorkoutSessionScreen() {
             setLastMsgType("frame_state");
             const p = (msg as any).payload as FrameStatePayload;
 
-            const reps = p?.rep_state?.reps;
-            const phase = p?.rep_state?.phase;
+            // Robust rep parsing: accept numbers or numeric strings and
+            // look in a couple of possible fields (payload.rep_state.reps,
+            // payload.rep_count, or top-level msg.rep_count).
+            const repsRaw =
+              p?.rep_state?.reps ?? p?.rep_state?.count ?? (msg as any)?.rep_count ?? p?.rep_count;
+            if (repsRaw !== undefined && repsRaw !== null) {
+              const parsed = typeof repsRaw === "number" ? repsRaw : parseInt(String(repsRaw), 10);
+              if (!Number.isNaN(parsed)) {
+                // Set the rep count directly (remove the "only update if greater" logic)
+                setRepCount(parsed);
+
+                // capture frame id if provided for debugging
+                const frameId = (msg as any)?.frame_id ?? p?.frame_id ?? undefined;
+                setLastParsedRep({ v: parsed, frame: typeof frameId === "number" ? frameId : undefined });
+                // mark debug label to show rep was parsed
+                setLastMsgType(`frame_state(reps=${parsed})`);
+              }
+            }
+
+            const phase = p?.rep_state?.phase ?? (msg as any)?.stage;
+            if (typeof phase === "string") setStage(phase);
 
             const status = p?.tracking?.status;
             const conf = p?.tracking?.confidence;
-            const reason = p?.tracking?.reason;
+            const reasonRaw = p?.tracking?.reason;
             const lf = p?.tracking?.lost_frames;
             const newCues = p?.feedback?.cues;
 
-            if (typeof reps === "number") setRepCount(reps);
-            if (typeof phase === "string") setStage(phase);
-
-            if (status === "ok" || status === "unstable" || status === "lost")
-              setTrackingStatus(status);
+            if (status === "ok" || status === "unstable" || status === "lost") setTrackingStatus(status);
             if (typeof conf === "number") setTrackingConf(conf);
-            if (typeof reason === "string" && reason.length)
-              setTrackingReason(reason);
+            // Normalize tracking reason: don't display bare 'ok' as a failure reason
+            if (typeof reasonRaw === "string") {
+              const r = reasonRaw.trim();
+              if (r.length === 0 || r.toLowerCase() === "ok") setTrackingReason("-");
+              else setTrackingReason(r);
+            }
             if (typeof lf === "number") setLostFrames(lf);
             if (Array.isArray(newCues)) setCues(newCues);
 
@@ -377,6 +398,21 @@ export default function WorkoutSessionScreen() {
             <Text style={styles.cameraHudText}>Stage: {stage || "-"}</Text>
           </View>
 
+          {/* Rep counter badge (top-right) */}
+          <View style={styles.repBadge} pointerEvents="none">
+            <Text style={styles.repBadgeLabel}>Reps</Text>
+            <Text style={styles.repBadgeValue}>{repCount ?? 0}</Text>
+          </View>
+
+          {/* Reason banner (center-top) */}
+          {((cues && cues.length > 0) || (trackingReason && trackingReason.length)) && (
+            <View style={styles.reasonBox} pointerEvents="none">
+              <Text style={styles.reasonText} numberOfLines={2} ellipsizeMode="tail">
+                {cues && cues.length > 0 ? cues[0] : trackingReason}
+              </Text>
+            </View>
+          )}
+
           {cues.length > 0 && (
             <View style={styles.cuesBox}>
               {cues.slice(0, 2).map((c, i) => (
@@ -394,6 +430,12 @@ export default function WorkoutSessionScreen() {
             <Text style={styles.debugText} numberOfLines={2}>
               {lastRawShort}
             </Text>
+            {lastParsedRep ? (
+              <Text style={styles.debugText} numberOfLines={1}>
+                parsedRep: {lastParsedRep.v}
+                {lastParsedRep.frame ? ` (frame:${lastParsedRep.frame})` : ""}
+              </Text>
+            ) : null}
           </View>
         </View>
       );
@@ -415,6 +457,21 @@ export default function WorkoutSessionScreen() {
           <Text style={styles.cameraHudText}>Lost: {lostFrames}</Text>
           <Text style={styles.cameraHudText}>Stage: {stage || "-"}</Text>
         </View>
+
+        {/* Rep counter badge (top-right) */}
+        <View style={styles.repBadge} pointerEvents="none">
+          <Text style={styles.repBadgeLabel}>Reps</Text>
+          <Text style={styles.repBadgeValue}>{repCount ?? 0}</Text>
+        </View>
+
+        {/* Reason banner (center-top) */}
+        {((cues && cues.length > 0) || (trackingReason && trackingReason.length)) && (
+          <View style={styles.reasonBox} pointerEvents="none">
+            <Text style={styles.reasonText} numberOfLines={2} ellipsizeMode="tail">
+              {cues && cues.length > 0 ? cues[0] : trackingReason}
+            </Text>
+          </View>
+        )}
 
         {cues.length > 0 && (
           <View style={styles.cuesBox}>
@@ -698,6 +755,47 @@ const styles = StyleSheet.create({
   debugText: {
     color: "#CBD5E1",
     fontSize: 10,
+  },
+
+  repBadge: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    pointerEvents: "none",
+  },
+  repBadgeLabel: {
+    color: "#9CA3AF",
+    fontSize: 10,
+  },
+  repBadgeValue: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  reasonBox: {
+    position: "absolute",
+    top: 12,
+    left: 60,
+    right: 60,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    pointerEvents: "none",
+  },
+  reasonText: {
+    color: "#FBBF24",
+    fontSize: 12,
+    textAlign: "center",
   },
 
   progressRow: {
