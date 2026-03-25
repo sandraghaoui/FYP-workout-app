@@ -198,8 +198,21 @@ export const workouts: Workout[] = [
     image: require("../assets/images/image5.png"),
     colorGradient: ["#F6339A", "#FF2056"],
     exercises: [
-      {
+       {
         id: 1,
+        name: "Push-Ups",
+        reps: "12 reps",
+        image: require("../assets/images/image2.png"),
+        howTo:
+          "From a high plank, lower your chest toward the floor and push back up.",
+        tips: [
+          "Body in a straight line.",
+          "Elbows at ~45°.",
+          "Engage your core.",
+        ],
+      },
+      {
+        id: 2,
         name: "Burpees",
         reps: "10 reps",
         image: require("../assets/images/burpees.jpg"),
