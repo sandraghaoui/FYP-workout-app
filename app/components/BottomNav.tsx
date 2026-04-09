@@ -13,12 +13,19 @@ const TAB_HEIGHT = 66;
 
 export default function BottomNav() {
   const pathname = usePathname() || "/";
+  const navigatingRef = React.useRef(false);
 
   const goReplace = (to: string) => {
+    // Prevent rapid consecutive navigations while an animation is running
+    if (navigatingRef.current) return;
+    if ((pathname === "/" && to === "/") || pathname === to) return;
+    navigatingRef.current = true;
     // Use replace to avoid stacking routes when switching tabs
     // cast to any because expo-router's strict route union types
     // don't accept dynamic strings here
     router.replace(to as any);
+    // unlock after animation/window period
+    setTimeout(() => (navigatingRef.current = false), 550);
   };
   // Hide bottom nav on workout pages (those should stack and be isolated)
   if (pathname.startsWith("/workout")) return null;
@@ -63,9 +70,26 @@ function NavItem({
   const activeWrapperStyle: ViewStyle = active
     ? styles.activeWrapper
     : ({} as ViewStyle);
+  const pressingRef = React.useRef(false);
+
+  const handlePress = () => {
+    if (active) return; // ignore presses on already-selected tab
+    if (pressingRef.current) return; // debounce rapid presses
+    pressingRef.current = true;
+    try {
+      onPress();
+    } finally {
+      setTimeout(() => (pressingRef.current = false), 600);
+    }
+  };
 
   return (
-    <TouchableOpacity style={styles.item} activeOpacity={0.8} onPress={onPress}>
+    <TouchableOpacity
+      style={styles.item}
+      activeOpacity={0.8}
+      onPress={handlePress}
+      disabled={active}
+    >
       <View style={[styles.iconWrapper, activeWrapperStyle]}>
         <Ionicons
           name={icon as any}
