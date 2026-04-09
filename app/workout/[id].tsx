@@ -1,23 +1,23 @@
 // app/workout/[id].tsx
 
+import { LinearGradient } from "expo-linear-gradient";
+import { router, useLocalSearchParams } from "expo-router";
 import React from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
   ImageBackground,
-  TouchableOpacity,
   ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { useLocalSearchParams, router } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
-import { workouts, Workout, Exercise } from "../../constants/workouts";
+import { Exercise, Workout, workouts } from "../../constants/workouts";
 
 export default function WorkoutExerciseScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const workoutId = Number(id);
   const workout: Workout | undefined = workouts.find(
-    (w: Workout) => w.id === workoutId
+    (w: Workout) => w.id === workoutId,
   );
 
   if (!workout || workout.exercises.length === 0) {
@@ -64,12 +64,7 @@ export default function WorkoutExerciseScreen() {
             imageStyle={styles.imageCardRadius}
           >
             <LinearGradient
-              colors={
-                [
-                  "rgba(0,0,0,0.4)",
-                  "rgba(0,0,0,0.8)",
-                ] as const
-              }
+              colors={["rgba(0,0,0,0.4)", "rgba(0,0,0,0.8)"] as const}
               start={{ x: 0.5, y: 0 }}
               end={{ x: 0.5, y: 1 }}
               style={styles.imageOverlay}
