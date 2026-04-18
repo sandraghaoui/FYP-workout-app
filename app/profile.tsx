@@ -1,3 +1,16 @@
+import { useAuth } from "@/src/context/AuthContext";
+import {
+  getSupabaseConfigError,
+  isSupabaseConfigured,
+} from "@/src/lib/supabase";
+import {
+  ensureProfileExists,
+  getProfile,
+  ProfileRecord,
+  TrainingLevel,
+  upsertProfile,
+} from "@/src/services/profile-service";
+import { gradients, palette } from "@/src/theme/palette";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
@@ -10,16 +23,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useAuth } from "@/src/context/AuthContext";
-import {
-  ensureProfileExists,
-  getProfile,
-  ProfileRecord,
-  TrainingLevel,
-  upsertProfile,
-} from "@/src/services/profile-service";
-import { getSupabaseConfigError, isSupabaseConfigured } from "@/src/lib/supabase";
-import { gradients, palette } from "@/src/theme/palette";
 
 const trainingLevels: TrainingLevel[] = [
   "Beginner",
@@ -27,7 +30,10 @@ const trainingLevels: TrainingLevel[] = [
   "Advanced",
 ];
 
-function createEmptyProfile(userId: string, email: string | null): ProfileRecord {
+function createEmptyProfile(
+  userId: string,
+  email: string | null,
+): ProfileRecord {
   return {
     id: userId,
     full_name: "",
@@ -59,6 +65,19 @@ function toNumberOrNull(value: string) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function splitFullName(fullName: string) {
+  const trimmed = fullName.trim();
+  if (!trimmed) {
+    return { firstName: "", lastName: "" };
+  }
+
+  const [firstName, ...rest] = trimmed.split(/\s+/);
+  return {
+    firstName,
+    lastName: rest.join(" "),
+  };
+}
+
 export default function ProfileScreen() {
   const { signOut, user } = useAuth();
   const [profile, setProfile] = React.useState<ProfileRecord>(() =>
@@ -69,6 +88,10 @@ export default function ProfileScreen() {
   const [signingOut, setSigningOut] = React.useState(false);
   const [message, setMessage] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const nameParts = React.useMemo(
+    () => splitFullName(profile.full_name),
+    [profile.full_name],
+  );
 
   const loadProfile = React.useCallback(async () => {
     if (!user) {
@@ -99,7 +122,9 @@ export default function ProfileScreen() {
       }
     } catch (loadError) {
       const nextError =
-        loadError instanceof Error ? loadError.message : "Unable to load profile.";
+        loadError instanceof Error
+          ? loadError.message
+          : "Unable to load profile.";
       setError(nextError);
       setProfile(createEmptyProfile(user.id, user.email ?? null));
     } finally {
@@ -133,7 +158,9 @@ export default function ProfileScreen() {
       setMessage("Profile saved successfully.");
     } catch (saveError) {
       const nextError =
-        saveError instanceof Error ? saveError.message : "Unable to save profile.";
+        saveError instanceof Error
+          ? saveError.message
+          : "Unable to save profile.";
       setError(nextError);
     } finally {
       setSaving(false);
@@ -148,7 +175,9 @@ export default function ProfileScreen() {
       await signOut();
     } catch (signOutError) {
       const nextError =
-        signOutError instanceof Error ? signOutError.message : "Unable to sign out.";
+        signOutError instanceof Error
+          ? signOutError.message
+          : "Unable to sign out.";
       setError(nextError);
     } finally {
       setSigningOut(false);
@@ -185,9 +214,11 @@ export default function ProfileScreen() {
           <Text style={styles.heroBadgeText}>Profile hub</Text>
         </View>
 
-        <Text style={styles.heroTitle}>Build a profile that powers your plan</Text>
+        <Text style={styles.heroTitle}>
+          Build a profile that powers your plan
+        </Text>
         <Text style={styles.heroSubtitle}>
-          Save athlete details to Supabase and reuse the same profile in the
+          Save your athlete details and reuse the same profile in the
           workout calendar.
         </Text>
 
@@ -195,17 +226,25 @@ export default function ProfileScreen() {
           <View
             style={[
               styles.connectionPill,
-              isSupabaseConfigured ? styles.connectionLive : styles.connectionOffline,
+              isSupabaseConfigured
+                ? styles.connectionLive
+                : styles.connectionOffline,
             ]}
           >
             <View
               style={[
                 styles.connectionDot,
-                { backgroundColor: isSupabaseConfigured ? palette.success : palette.warning },
+                {
+                  backgroundColor: isSupabaseConfigured
+                    ? palette.success
+                    : palette.warning,
+                },
               ]}
             />
             <Text style={styles.connectionText}>
-              {isSupabaseConfigured ? "Supabase connected" : "Supabase setup needed"}
+              {isSupabaseConfigured
+                ? "Supabase connected"
+                : "Supabase setup needed"}
             </Text>
           </View>
         </View>
@@ -228,15 +267,15 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.identityCard}>
-          <Text style={styles.identityLabel}>Signed in as</Text>
-          <Text style={styles.identityValue}>{user?.email ?? "No email"}</Text>
+          <Text style={styles.identityLabel}>Full name</Text>
+          <Text style={styles.identityValue}>
+            {profile.full_name.trim() || "Add your name below"}
+          </Text>
         </View>
 
         <View style={styles.identityCard}>
-          <Text style={styles.identityLabel}>User ID</Text>
-          <Text style={styles.identityValue} numberOfLines={2}>
-            {user?.id ?? "Unavailable"}
-          </Text>
+          <Text style={styles.identityLabel}>Email</Text>
+          <Text style={styles.identityValue}>{user?.email ?? "No email"}</Text>
         </View>
       </View>
 
@@ -256,16 +295,39 @@ export default function ProfileScreen() {
           {loading ? <ActivityIndicator color={palette.accent} /> : null}
         </View>
 
-        <Text style={styles.inputLabel}>Full name</Text>
-        <TextInput
-          value={profile.full_name}
-          onChangeText={(value) =>
-            setProfile((current) => ({ ...current, full_name: value }))
-          }
-          placeholder="Your name"
-          placeholderTextColor={palette.textMuted}
-          style={styles.input}
-        />
+        <View style={styles.metricsRow}>
+          <View style={styles.metricCol}>
+            <Text style={styles.inputLabel}>First name</Text>
+            <TextInput
+              value={nameParts.firstName}
+              onChangeText={(value) =>
+                setProfile((current) => ({
+                  ...current,
+                  full_name: `${value.trim()} ${splitFullName(current.full_name).lastName}`.trim(),
+                }))
+              }
+              placeholder="First name"
+              placeholderTextColor={palette.textMuted}
+              style={styles.input}
+            />
+          </View>
+
+          <View style={styles.metricCol}>
+            <Text style={styles.inputLabel}>Last name</Text>
+            <TextInput
+              value={nameParts.lastName}
+              onChangeText={(value) =>
+                setProfile((current) => ({
+                  ...current,
+                  full_name: `${splitFullName(current.full_name).firstName} ${value.trim()}`.trim(),
+                }))
+              }
+              placeholder="Last name"
+              placeholderTextColor={palette.textMuted}
+              style={styles.input}
+            />
+          </View>
+        </View>
 
         <Text style={styles.inputLabel}>Email</Text>
         <TextInput
@@ -295,9 +357,15 @@ export default function ProfileScreen() {
             return (
               <TouchableOpacity
                 key={level}
-                style={[styles.levelChip, active ? styles.levelChipActive : null]}
+                style={[
+                  styles.levelChip,
+                  active ? styles.levelChipActive : null,
+                ]}
                 onPress={() =>
-                  setProfile((current) => ({ ...current, training_level: level }))
+                  setProfile((current) => ({
+                    ...current,
+                    training_level: level,
+                  }))
                 }
               >
                 <Text
@@ -319,7 +387,10 @@ export default function ProfileScreen() {
             <TextInput
               value={profile.age?.toString() ?? ""}
               onChangeText={(value) =>
-                setProfile((current) => ({ ...current, age: toNumberOrNull(value) }))
+                setProfile((current) => ({
+                  ...current,
+                  age: toNumberOrNull(value),
+                }))
               }
               placeholder="24"
               placeholderTextColor={palette.textMuted}
@@ -387,7 +458,10 @@ export default function ProfileScreen() {
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       <TouchableOpacity
-        style={[styles.primaryButton, saving ? styles.primaryButtonDisabled : null]}
+        style={[
+          styles.primaryButton,
+          saving ? styles.primaryButtonDisabled : null,
+        ]}
         onPress={handleSave}
         disabled={saving || !isSupabaseConfigured}
       >
@@ -395,14 +469,23 @@ export default function ProfileScreen() {
           <ActivityIndicator color={palette.textPrimary} />
         ) : (
           <>
-            <Ionicons name="cloud-upload-outline" size={18} color={palette.textPrimary} />
-            <Text style={styles.primaryButtonText}>Save profile to Supabase</Text>
+            <Ionicons
+              name="cloud-upload-outline"
+              size={18}
+              color={palette.textPrimary}
+            />
+            <Text style={styles.primaryButtonText}>
+              Save profile to Supabase
+            </Text>
           </>
         )}
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.secondaryActionButton, signingOut ? styles.primaryButtonDisabled : null]}
+        style={[
+          styles.secondaryActionButton,
+          signingOut ? styles.primaryButtonDisabled : null,
+        ]}
         onPress={handleSignOut}
         disabled={signingOut}
       >
@@ -410,7 +493,11 @@ export default function ProfileScreen() {
           <ActivityIndicator color={palette.textPrimary} />
         ) : (
           <>
-            <Ionicons name="log-out-outline" size={18} color={palette.textPrimary} />
+            <Ionicons
+              name="log-out-outline"
+              size={18}
+              color={palette.textPrimary}
+            />
             <Text style={styles.secondaryActionText}>Log out</Text>
           </>
         )}
