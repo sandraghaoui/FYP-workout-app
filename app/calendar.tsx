@@ -3,9 +3,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
 import {
   ActivityIndicator,
-  Animated,
   Alert,
-  Dimensions,
+  Animated,
+  Easing,
+  Modal,
   PanResponder,
   ScrollView,
   StyleSheet,
@@ -25,6 +26,16 @@ import {
   WorkoutPlanRecord,
 } from "@/src/services/workout-plans-service";
 import { gradients, palette } from "@/src/theme/palette";
+
+const WORKOUT_CATEGORIES = [
+  "Workout",
+  "Strength",
+  "Cardio",
+  "Mobility",
+  "Recovery",
+  "Conditioning",
+  "Personal",
+] as const;
 
 function isoDateString(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -56,11 +67,9 @@ function getMonthRange(date: Date) {
 
 export default function CalendarScreen() {
   const { user } = useAuth();
-  const width = Dimensions.get("window").width;
-  const translateX = React.useRef(new Animated.Value(0)).current;
+  const monthTransition = React.useRef(new Animated.Value(0)).current;
   const [currentMonth, setCurrentMonth] = React.useState(() => new Date());
   const [selectedDate, setSelectedDate] = React.useState(() => new Date());
-  const [cover, setCover] = React.useState(false);
   const [plans, setPlans] = React.useState<WorkoutPlanRecord[]>([]);
   const [planSummary, setPlanSummary] = React.useState<Record<string, number>>({});
   const [loadingPlans, setLoadingPlans] = React.useState(false);
@@ -69,6 +78,11 @@ export default function CalendarScreen() {
   const [draftTitle, setDraftTitle] = React.useState("");
   const [draftCategory, setDraftCategory] = React.useState("Workout");
   const [draftNotes, setDraftNotes] = React.useState("");
+  const [categoryMenuOpen, setCategoryMenuOpen] = React.useState(false);
+  const [pendingDeletePlan, setPendingDeletePlan] =
+    React.useState<WorkoutPlanRecord | null>(null);
+  const [deletingPlan, setDeletingPlan] = React.useState(false);
+  const [isMonthTransitioning, setIsMonthTransitioning] = React.useState(false);
 
   const monthDays = React.useMemo(() => getMonthGrid(currentMonth), [currentMonth]);
   const selectedIso = isoDateString(selectedDate);
@@ -128,28 +142,61 @@ export default function CalendarScreen() {
     void reloadMonthSummary();
   }, [reloadMonthSummary]);
 
-  const animateMonthChange = React.useCallback(
+  const changeMonth = React.useCallback(
     (direction: "previous" | "next") => {
-      const toValue = direction === "next" ? -width : width;
-      setCover(true);
-      translateX.setValue(0);
-      Animated.timing(translateX, {
-        toValue,
-        duration: 180,
+      if (isMonthTransitioning) return;
+
+      const outgoingOffset = direction === "next" ? -26 : 26;
+      const incomingOffset = direction === "next" ? 26 : -26;
+
+      setIsMonthTransitioning(true);
+      Animated.timing(monthTransition, {
+        toValue: outgoingOffset,
+        duration: 130,
+        easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }).start(() => {
-        setCurrentMonth((current) =>
-          new Date(
+        setCurrentMonth((current) => {
+          const nextMonth = new Date(
             current.getFullYear(),
             current.getMonth() + (direction === "next" ? 1 : -1),
             1,
-          ),
-        );
-        translateX.setValue(0);
-        setTimeout(() => setCover(false), 80);
+          );
+
+          if (
+            selectedDate.getFullYear() === current.getFullYear() &&
+            selectedDate.getMonth() === current.getMonth()
+          ) {
+            const clampedDate = new Date(
+              nextMonth.getFullYear(),
+              nextMonth.getMonth(),
+              Math.min(
+                selectedDate.getDate(),
+                new Date(
+                  nextMonth.getFullYear(),
+                  nextMonth.getMonth() + 1,
+                  0,
+                ).getDate(),
+              ),
+            );
+            setSelectedDate(clampedDate);
+          }
+
+          return nextMonth;
+        });
+
+        monthTransition.setValue(incomingOffset);
+        Animated.timing(monthTransition, {
+          toValue: 0,
+          duration: 170,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }).start(() => {
+          setIsMonthTransitioning(false);
+        });
       });
     },
-    [translateX, width],
+    [isMonthTransitioning, monthTransition, selectedDate],
   );
 
   const panResponder = React.useRef(
@@ -157,26 +204,17 @@ export default function CalendarScreen() {
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, gesture) =>
         Math.abs(gesture.dx) > 10 && Math.abs(gesture.dy) < 30,
-      onPanResponderMove: (_, gesture) => {
-        translateX.setValue(gesture.dx);
-      },
       onPanResponderRelease: (_, gesture) => {
-        const swipeThreshold = width * 0.22;
+        const swipeThreshold = 44;
 
         if (gesture.dx < -swipeThreshold) {
-          animateMonthChange("next");
+          changeMonth("next");
           return;
         }
 
         if (gesture.dx > swipeThreshold) {
-          animateMonthChange("previous");
-          return;
+          changeMonth("previous");
         }
-
-        Animated.spring(translateX, {
-          toValue: 0,
-          useNativeDriver: true,
-        }).start();
       },
     }),
   ).current;
@@ -208,6 +246,7 @@ export default function CalendarScreen() {
       setDraftTitle("");
       setDraftCategory("Workout");
       setDraftNotes("");
+      setCategoryMenuOpen(false);
       await Promise.all([reloadSelectedDay(), reloadMonthSummary()]);
     } catch (createError) {
       const nextError =
@@ -262,7 +301,26 @@ export default function CalendarScreen() {
     [reloadMonthSummary, reloadSelectedDay],
   );
 
+  const confirmDeletePlan = React.useCallback(async () => {
+    if (!pendingDeletePlan) return;
+
+    setDeletingPlan(true);
+    try {
+      await handleDeletePlan(pendingDeletePlan.id);
+      setPendingDeletePlan(null);
+    } finally {
+      setDeletingPlan(false);
+    }
+  }, [handleDeletePlan, pendingDeletePlan]);
+
   const completedCount = plans.filter((item) => item.status === "done").length;
+  const calendarAnimatedStyle = {
+    opacity: monthTransition.interpolate({
+      inputRange: [-26, 0, 26],
+      outputRange: [0.6, 1, 0.6],
+    }),
+    transform: [{ translateX: monthTransition }],
+  };
 
   return (
     <ScrollView
@@ -286,11 +344,7 @@ export default function CalendarScreen() {
         </Text>
 
         <View style={styles.heroMetricsRow}>
-          <MetricCard
-            label="Active account"
-            value={user?.email ?? "Not signed in"}
-          />
-          <MetricCard label="Selected day" value={selectedIso} />
+          <MetricCard label="Selected day" value={selectedDate.toDateString()} featured />
           <MetricCard label="Completed" value={`${completedCount}/${plans.length}`} />
         </View>
       </LinearGradient>
@@ -308,7 +362,7 @@ export default function CalendarScreen() {
       <View style={styles.calendarShell}>
         <View style={styles.monthHeader}>
           <TouchableOpacity
-            onPress={() => animateMonthChange("previous")}
+            onPress={() => changeMonth("previous")}
             style={styles.monthButton}
           >
             <Ionicons name="chevron-back" size={18} color={palette.textPrimary} />
@@ -320,7 +374,7 @@ export default function CalendarScreen() {
           </Text>
 
           <TouchableOpacity
-            onPress={() => animateMonthChange("next")}
+            onPress={() => changeMonth("next")}
             style={styles.monthButton}
           >
             <Ionicons name="chevron-forward" size={18} color={palette.textPrimary} />
@@ -336,47 +390,44 @@ export default function CalendarScreen() {
         </View>
 
         <View {...panResponder.panHandlers} style={styles.calendarGestureArea}>
-          <Animated.View style={{ width, transform: [{ translateX }] }}>
-            <View style={{ width }}>
-              <View style={styles.grid}>
-                {monthDays.map((date, index) => {
-                  const iso = date ? isoDateString(date) : null;
-                  const isSelected = iso === selectedIso;
-                  const isToday = iso === isoDateString(new Date());
-                  const planCount = iso ? planSummary[iso] ?? 0 : 0;
+          <Animated.View style={calendarAnimatedStyle}>
+            <View style={styles.grid}>
+            {monthDays.map((date, index) => {
+              const iso = date ? isoDateString(date) : null;
+              const isSelected = iso === selectedIso;
+              const isToday = iso === isoDateString(new Date());
+              const planCount = iso ? planSummary[iso] ?? 0 : 0;
 
-                  return (
-                    <TouchableOpacity
-                      key={iso ?? `empty-${index}`}
-                      style={[
-                        styles.dayCell,
-                        isSelected ? styles.dayCellSelected : null,
-                      ]}
-                      onPress={() => date && setSelectedDate(date)}
-                      disabled={!date}
-                    >
-                      <Text
-                        style={[
-                          styles.dayText,
-                          isToday ? styles.todayText : null,
-                          isSelected ? styles.dayTextSelected : null,
-                          !date ? styles.dayTextEmpty : null,
-                        ]}
-                      >
-                        {date ? date.getDate() : ""}
-                      </Text>
-                      {planCount > 0 ? (
-                        <View style={styles.planCountPill}>
-                          <Text style={styles.planCountText}>{planCount}</Text>
-                        </View>
-                      ) : null}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              return (
+                <TouchableOpacity
+                  key={iso ?? `empty-${index}`}
+                  style={[
+                    styles.dayCell,
+                    isSelected ? styles.dayCellSelected : null,
+                  ]}
+                  onPress={() => date && setSelectedDate(date)}
+                  disabled={!date}
+                >
+                  <Text
+                    style={[
+                      styles.dayText,
+                      isToday ? styles.todayText : null,
+                      isSelected ? styles.dayTextSelected : null,
+                      !date ? styles.dayTextEmpty : null,
+                    ]}
+                  >
+                    {date ? date.getDate() : ""}
+                  </Text>
+                  {planCount > 0 ? (
+                    <View style={styles.planCountPill}>
+                      <Text style={styles.planCountText}>{planCount}</Text>
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+              );
+            })}
             </View>
           </Animated.View>
-          {cover ? <View pointerEvents="none" style={styles.cover} /> : null}
         </View>
       </View>
 
@@ -401,13 +452,57 @@ export default function CalendarScreen() {
         />
 
         <Text style={styles.inputLabel}>Category</Text>
-        <TextInput
-          value={draftCategory}
-          onChangeText={setDraftCategory}
-          placeholder="Strength"
-          placeholderTextColor={palette.textMuted}
-          style={styles.input}
-        />
+        <View style={styles.dropdownWrap}>
+          <TouchableOpacity
+            style={styles.dropdownButton}
+            onPress={() => setCategoryMenuOpen((current) => !current)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.dropdownButtonText}>{draftCategory}</Text>
+            <Ionicons
+              name={categoryMenuOpen ? "chevron-up" : "chevron-down"}
+              size={18}
+              color={palette.textSecondary}
+            />
+          </TouchableOpacity>
+
+          {categoryMenuOpen ? (
+            <View style={styles.dropdownMenu}>
+              {WORKOUT_CATEGORIES.map((category) => {
+                const active = draftCategory === category;
+                return (
+                  <TouchableOpacity
+                    key={category}
+                    style={[
+                      styles.dropdownItem,
+                      active ? styles.dropdownItemActive : null,
+                    ]}
+                    onPress={() => {
+                      setDraftCategory(category);
+                      setCategoryMenuOpen(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.dropdownItemText,
+                        active ? styles.dropdownItemTextActive : null,
+                      ]}
+                    >
+                      {category}
+                    </Text>
+                    {active ? (
+                      <Ionicons
+                        name="checkmark"
+                        size={16}
+                        color={palette.accent}
+                      />
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ) : null}
+        </View>
 
         <Text style={styles.inputLabel}>Notes</Text>
         <TextInput
@@ -474,7 +569,7 @@ export default function CalendarScreen() {
 
                 <TouchableOpacity
                   style={styles.deleteButton}
-                  onPress={() => handleDeletePlan(plan.id)}
+                  onPress={() => setPendingDeletePlan(plan)}
                 >
                   <Ionicons name="trash-outline" size={18} color="#FDBA74" />
                 </TouchableOpacity>
@@ -503,15 +598,74 @@ export default function CalendarScreen() {
           ))
         )}
       </View>
+
+      <Modal
+        visible={Boolean(pendingDeletePlan)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!deletingPlan) setPendingDeletePlan(null);
+        }}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalIconWrap}>
+              <Ionicons name="trash-outline" size={22} color="#FDBA74" />
+            </View>
+            <Text style={styles.modalTitle}>Delete this event?</Text>
+            <Text style={styles.modalText}>
+              {pendingDeletePlan
+                ? `Remove "${pendingDeletePlan.title}" from ${selectedDate.toDateString()}?`
+                : "This will remove the selected event from your calendar."}
+            </Text>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalSecondaryButton}
+                onPress={() => setPendingDeletePlan(null)}
+                disabled={deletingPlan}
+              >
+                <Text style={styles.modalSecondaryText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalPrimaryButton,
+                  deletingPlan ? styles.primaryButtonDisabled : null,
+                ]}
+                onPress={confirmDeletePlan}
+                disabled={deletingPlan}
+              >
+                {deletingPlan ? (
+                  <ActivityIndicator color={palette.textPrimary} />
+                ) : (
+                  <Text style={styles.modalPrimaryText}>Delete</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
 
-function MetricCard({ label, value }: { label: string; value: string }) {
+function MetricCard({
+  label,
+  value,
+  featured = false,
+}: {
+  label: string;
+  value: string;
+  featured?: boolean;
+}) {
   return (
-    <View style={styles.metricCard}>
+    <View style={[styles.metricCard, featured ? styles.metricCardFeatured : null]}>
       <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricValue} numberOfLines={1}>
+      <Text
+        style={[styles.metricValue, featured ? styles.metricValueFeatured : null]}
+        numberOfLines={featured ? 2 : 1}
+      >
         {value}
       </Text>
     </View>
@@ -579,6 +733,9 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 12,
   },
+  metricCardFeatured: {
+    flex: 1.35,
+  },
   metricLabel: {
     color: palette.textMuted,
     fontSize: 11,
@@ -588,6 +745,10 @@ const styles = StyleSheet.create({
     color: palette.textPrimary,
     fontSize: 14,
     fontWeight: "700",
+  },
+  metricValueFeatured: {
+    fontSize: 15,
+    lineHeight: 21,
   },
   warningCard: {
     backgroundColor: "rgba(245, 158, 11, 0.12)",
@@ -737,6 +898,53 @@ const styles = StyleSheet.create({
     fontSize: 15,
     marginBottom: 14,
   },
+  dropdownWrap: {
+    marginBottom: 14,
+  },
+  dropdownButton: {
+    backgroundColor: palette.backgroundElevated,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: palette.cardBorder,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  dropdownButtonText: {
+    color: palette.textPrimary,
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  dropdownMenu: {
+    backgroundColor: palette.surfaceStrong,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: palette.cardBorder,
+    marginTop: 8,
+    overflow: "hidden",
+  },
+  dropdownItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(148, 163, 184, 0.08)",
+  },
+  dropdownItemActive: {
+    backgroundColor: palette.accentSoft,
+  },
+  dropdownItemText: {
+    color: palette.textSecondary,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  dropdownItemTextActive: {
+    color: palette.textPrimary,
+  },
   notesInput: {
     minHeight: 88,
     textAlignVertical: "top",
@@ -859,12 +1067,69 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
   },
-  cover: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    backgroundColor: palette.surface,
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(2, 8, 23, 0.68)",
+    justifyContent: "center",
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: palette.surfaceStrong,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: palette.cardBorder,
+    padding: 22,
+  },
+  modalIconWrap: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: "rgba(249, 115, 22, 0.14)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  modalTitle: {
+    color: palette.textPrimary,
+    fontSize: 20,
+    fontWeight: "800",
+    marginBottom: 8,
+  },
+  modalText: {
+    color: palette.textSecondary,
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 20,
+  },
+  modalSecondaryButton: {
+    flex: 1,
+    backgroundColor: palette.backgroundElevated,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: palette.cardBorder,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  modalSecondaryText: {
+    color: palette.textPrimary,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  modalPrimaryButton: {
+    flex: 1,
+    backgroundColor: palette.danger,
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalPrimaryText: {
+    color: palette.textPrimary,
+    fontSize: 14,
+    fontWeight: "800",
   },
 });
