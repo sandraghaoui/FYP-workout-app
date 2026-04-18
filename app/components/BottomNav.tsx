@@ -8,11 +8,13 @@ import {
   View,
   ViewStyle,
 } from "react-native";
+import { useAuth } from "@/src/context/AuthContext";
 
 const TAB_HEIGHT = 66;
 
 export default function BottomNav() {
   const pathname = usePathname() || "/";
+  const { session } = useAuth();
   const navigatingRef = React.useRef(false);
 
   const goReplace = (to: string) => {
@@ -27,8 +29,10 @@ export default function BottomNav() {
     // unlock after animation/window period
     setTimeout(() => (navigatingRef.current = false), 550);
   };
-  // Hide bottom nav on workout pages (those should stack and be isolated)
-  if (pathname.startsWith("/workout")) return null;
+  // Hide bottom nav on workout pages and auth screens
+  if (!session || pathname.startsWith("/workout") || pathname === "/login" || pathname === "/signup") {
+    return null;
+  }
 
   return (
     <View style={styles.container}>

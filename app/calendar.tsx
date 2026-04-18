@@ -1,330 +1,870 @@
-import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
 import {
+  ActivityIndicator,
   Animated,
+  Alert,
   Dimensions,
   PanResponder,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useAuth } from "@/src/context/AuthContext";
+import { isSupabaseConfigured } from "@/src/lib/supabase";
+import {
+  createWorkoutPlan,
+  deleteWorkoutPlan,
+  listWorkoutPlans,
+  listWorkoutPlanSummary,
+  updateWorkoutPlan,
+  WorkoutPlanRecord,
+} from "@/src/services/workout-plans-service";
+import { gradients, palette } from "@/src/theme/palette";
 
-function isoDateString(d: Date) {
-  return d.toISOString().slice(0, 10);
+function isoDateString(date: Date) {
+  return date.toISOString().slice(0, 10);
 }
 
-const SAMPLE_EVENTS: Record<string, Array<{ id: string; title: string }>> = {
-  // sample items keyed by YYYY-MM-DD
-  [new Date().toISOString().slice(0, 10)]: [
-    { id: "1", title: "Legs - Squats" },
-    { id: "2", title: "Core - Plank" },
-  ],
-  // example: tomorrow
-  [new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10)]: [
-    { id: "3", title: "Upper body - Push" },
-  ],
-};
+function getMonthGrid(baseDate: Date) {
+  const year = baseDate.getFullYear();
+  const month = baseDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const startOffset = firstDay.getDay();
+  const totalDays = new Date(year, month + 1, 0).getDate();
+  const days: (Date | null)[] = [];
+
+  for (let index = 0; index < startOffset; index += 1) days.push(null);
+  for (let day = 1; day <= totalDays; day += 1) days.push(new Date(year, month, day));
+  while (days.length < 42) days.push(null);
+
+  return days;
+}
+
+function getMonthRange(date: Date) {
+  const start = new Date(date.getFullYear(), date.getMonth(), 1);
+  const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  return {
+    start: isoDateString(start),
+    end: isoDateString(end),
+  };
+}
 
 export default function CalendarScreen() {
-  const router = useRouter();
-  const [current, setCurrent] = React.useState(() => new Date());
-  const [selected, setSelected] = React.useState<Date>(() => new Date());
-  const WIDTH = Dimensions.get("window").width;
-  const translateX = React.useRef(new Animated.Value(0)).current; // single-panel: start at 0
+  const { user } = useAuth();
+  const width = Dimensions.get("window").width;
+  const translateX = React.useRef(new Animated.Value(0)).current;
+  const [currentMonth, setCurrentMonth] = React.useState(() => new Date());
+  const [selectedDate, setSelectedDate] = React.useState(() => new Date());
+  const [cover, setCover] = React.useState(false);
+  const [plans, setPlans] = React.useState<WorkoutPlanRecord[]>([]);
+  const [planSummary, setPlanSummary] = React.useState<Record<string, number>>({});
+  const [loadingPlans, setLoadingPlans] = React.useState(false);
+  const [savingPlan, setSavingPlan] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [draftTitle, setDraftTitle] = React.useState("");
+  const [draftCategory, setDraftCategory] = React.useState("Workout");
+  const [draftNotes, setDraftNotes] = React.useState("");
 
-  // memoized month grids to avoid recalculation on every render
-  const monthDays = React.useCallback((y: number, m: number) => {
-    // Return array of 42 slots (6 rows x 7 cols) with Date for month-days and null for empty slots
-    const first = new Date(y, m, 1);
-    const start = first.getDay();
-    const total = new Date(y, m + 1, 0).getDate();
-    const arr: Array<Date | null> = [];
-    for (let i = 0; i < start; i++) arr.push(null);
-    for (let d = 1; d <= total; d++) arr.push(new Date(y, m, d));
-    while (arr.length < 42) arr.push(null);
-    return arr;
-  }, []);
+  const monthDays = React.useMemo(() => getMonthGrid(currentMonth), [currentMonth]);
+  const selectedIso = isoDateString(selectedDate);
+
+  const reloadSelectedDay = React.useCallback(async () => {
+    if (!user || !isSupabaseConfigured) {
+      setPlans([]);
+      return;
+    }
+
+    setLoadingPlans(true);
+    setError(null);
+
+    try {
+      const data = await listWorkoutPlans(user.id, selectedIso);
+      setPlans(data);
+    } catch (loadError) {
+      const nextError =
+        loadError instanceof Error
+          ? loadError.message
+          : "Unable to load your workouts for this day.";
+      setError(nextError);
+    } finally {
+      setLoadingPlans(false);
+    }
+  }, [selectedIso, user]);
+
+  const reloadMonthSummary = React.useCallback(async () => {
+    if (!user || !isSupabaseConfigured) {
+      setPlanSummary({});
+      return;
+    }
+
+    try {
+      const range = getMonthRange(currentMonth);
+      const items = await listWorkoutPlanSummary(user.id, range.start, range.end);
+      const summary = items.reduce<Record<string, number>>((accumulator, item) => {
+        accumulator[item.workout_date] = (accumulator[item.workout_date] ?? 0) + 1;
+        return accumulator;
+      }, {});
+
+      setPlanSummary(summary);
+    } catch (loadError) {
+      const nextError =
+        loadError instanceof Error
+          ? loadError.message
+          : "Unable to load monthly plan summary.";
+      setError(nextError);
+    }
+  }, [currentMonth, user]);
+
+  React.useEffect(() => {
+    void reloadSelectedDay();
+  }, [reloadSelectedDay]);
+
+  React.useEffect(() => {
+    void reloadMonthSummary();
+  }, [reloadMonthSummary]);
+
+  const animateMonthChange = React.useCallback(
+    (direction: "previous" | "next") => {
+      const toValue = direction === "next" ? -width : width;
+      setCover(true);
+      translateX.setValue(0);
+      Animated.timing(translateX, {
+        toValue,
+        duration: 180,
+        useNativeDriver: true,
+      }).start(() => {
+        setCurrentMonth((current) =>
+          new Date(
+            current.getFullYear(),
+            current.getMonth() + (direction === "next" ? 1 : -1),
+            1,
+          ),
+        );
+        translateX.setValue(0);
+        setTimeout(() => setCover(false), 80);
+      });
+    },
+    [translateX, width],
+  );
 
   const panResponder = React.useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, gesture) =>
-        Math.abs(gesture.dx) > 8 && Math.abs(gesture.dy) < 30,
-      onPanResponderGrant: () => {
-        translateX.stopAnimation();
-      },
+        Math.abs(gesture.dx) > 10 && Math.abs(gesture.dy) < 30,
       onPanResponderMove: (_, gesture) => {
-        // single-panel: drag moves between -WIDTH..+WIDTH
         translateX.setValue(gesture.dx);
       },
       onPanResponderRelease: (_, gesture) => {
-        const { dx, vx } = gesture;
-        const SWIPE_THRESHOLD = WIDTH * 0.22;
-        const FLING_VELOCITY = 0.4;
+        const swipeThreshold = width * 0.22;
 
-        if (dx < -SWIPE_THRESHOLD || (dx < 0 && vx < -FLING_VELOCITY)) {
-          // animate to show void to the left then advance month
-          setCover(true);
-          Animated.timing(translateX, {
-            toValue: -WIDTH,
-            duration: 200,
-            useNativeDriver: true,
-          }).start(() => {
-            setCurrent((c) => new Date(c.getFullYear(), c.getMonth() + 1, 1));
-            translateX.setValue(0);
-            // small timeout to avoid visual jump
-            setTimeout(() => setCover(false), 80);
-          });
-        } else if (dx > SWIPE_THRESHOLD || (dx > 0 && vx > FLING_VELOCITY)) {
-          // animate to show void to the right then go to previous month
-          setCover(true);
-          Animated.timing(translateX, {
-            toValue: WIDTH,
-            duration: 200,
-            useNativeDriver: true,
-          }).start(() => {
-            setCurrent((c) => new Date(c.getFullYear(), c.getMonth() - 1, 1));
-            translateX.setValue(0);
-            setTimeout(() => setCover(false), 80);
-          });
-        } else {
-          // snap back to center
-          Animated.spring(translateX, {
-            toValue: 0,
-            useNativeDriver: true,
-          }).start();
+        if (gesture.dx < -swipeThreshold) {
+          animateMonthChange("next");
+          return;
         }
+
+        if (gesture.dx > swipeThreshold) {
+          animateMonthChange("previous");
+          return;
+        }
+
+        Animated.spring(translateX, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
       },
     }),
   ).current;
-  // Single-panel: compute current month's grid
-  const curDays = monthDays(current.getFullYear(), current.getMonth());
-  const selectedISO = isoDateString(selected);
-  const events = SAMPLE_EVENTS[selectedISO] ?? [];
-  const [cover, setCover] = React.useState(false);
 
-  const addMonths = (d: Date, n: number) =>
-    new Date(d.getFullYear(), d.getMonth() + n, 1);
+  const handleCreatePlan = React.useCallback(async () => {
+    if (!user) {
+      Alert.alert("Login needed", "Sign in to create workout plans.");
+      return;
+    }
 
-  const goPrev = () => {
-    Animated.timing(translateX, {
-      toValue: WIDTH,
-      duration: 180,
-      useNativeDriver: true,
-    }).start(() => {
-      setCurrent((c) => addMonths(c, -1));
-      translateX.setValue(0);
-    });
-  };
+    if (!draftTitle.trim()) {
+      Alert.alert("Title required", "Add a workout or task title first.");
+      return;
+    }
 
-  const goNext = () => {
-    setCover(true);
-    Animated.timing(translateX, {
-      toValue: -WIDTH,
-      duration: 180,
-      useNativeDriver: true,
-    }).start(() => {
-      setCurrent((c) => addMonths(c, 1));
-      translateX.setValue(0);
-      setTimeout(() => setCover(false), 80);
-    });
-  };
+    setSavingPlan(true);
+    setError(null);
 
-  // renderDayCell inside component so it can compare against current for styling
-  const renderDayCell = (d: Date | null, idx: number) => {
-    const isToday = d ? isoDateString(d) === isoDateString(new Date()) : false;
-    const isSelected = d ? isoDateString(d) === isoDateString(selected) : false;
-    const isOtherMonth = d ? d.getMonth() !== current.getMonth() : false;
-    const keyId = `cell-${idx}`; // position-based stable key
-    return (
-      <TouchableOpacity
-        key={keyId}
-        style={[styles.cell, isSelected ? styles.cellSelected : null]}
-        onPress={() => d && setSelected(d)}
-        activeOpacity={d ? 0.7 : 1}
-      >
-        <Text
-          style={[
-            styles.cellText,
-            isToday ? styles.cellTodayText : null,
-            isSelected ? styles.cellTextSelected : null,
-            isOtherMonth ? styles.cellFaded : null,
-          ]}
-        >
-          {d ? d.getDate() : ""}
-        </Text>
-        {d && SAMPLE_EVENTS[isoDateString(d)] ? (
-          <View style={styles.dot} />
-        ) : null}
-      </TouchableOpacity>
-    );
-  };
+    try {
+      await createWorkoutPlan({
+        user_id: user.id,
+        workout_date: selectedIso,
+        title: draftTitle.trim(),
+        category: draftCategory.trim() || "Workout",
+        notes: draftNotes.trim() || null,
+        status: "planned",
+      });
+
+      setDraftTitle("");
+      setDraftCategory("Workout");
+      setDraftNotes("");
+      await Promise.all([reloadSelectedDay(), reloadMonthSummary()]);
+    } catch (createError) {
+      const nextError =
+        createError instanceof Error
+          ? createError.message
+          : "Unable to save this workout plan.";
+      setError(nextError);
+    } finally {
+      setSavingPlan(false);
+    }
+  }, [
+    draftCategory,
+    draftNotes,
+    draftTitle,
+    reloadMonthSummary,
+    reloadSelectedDay,
+    selectedIso,
+    user,
+  ]);
+
+  const handleToggleStatus = React.useCallback(
+    async (plan: WorkoutPlanRecord) => {
+      try {
+        await updateWorkoutPlan(plan.id, {
+          status: plan.status === "done" ? "planned" : "done",
+        });
+        await Promise.all([reloadSelectedDay(), reloadMonthSummary()]);
+      } catch (updateError) {
+        const nextError =
+          updateError instanceof Error
+            ? updateError.message
+            : "Unable to update this workout plan.";
+        setError(nextError);
+      }
+    },
+    [reloadMonthSummary, reloadSelectedDay],
+  );
+
+  const handleDeletePlan = React.useCallback(
+    async (planId: string) => {
+      try {
+        await deleteWorkoutPlan(planId);
+        await Promise.all([reloadSelectedDay(), reloadMonthSummary()]);
+      } catch (deleteError) {
+        const nextError =
+          deleteError instanceof Error
+            ? deleteError.message
+            : "Unable to delete this workout plan.";
+        setError(nextError);
+      }
+    },
+    [reloadMonthSummary, reloadSelectedDay],
+  );
+
+  const completedCount = plans.filter((item) => item.status === "done").length;
 
   return (
-    <View style={styles.screen}>
-      <View style={styles.headerRow}>
-        <View style={styles.headerCenter}>
-          <TouchableOpacity onPress={goPrev} style={styles.chev}>
-            <Text style={styles.chevText}>‹</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>
-            {current.toLocaleString(undefined, { month: "long" })}{" "}
-            {current.getFullYear()}
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
+      <LinearGradient colors={gradients.hero} style={styles.heroCard}>
+        <View style={styles.heroHeader}>
+          <View>
+            <Text style={styles.heroEyebrow}>Workout planner</Text>
+            <Text style={styles.heroTitle}>Train with structure, not guesswork</Text>
+          </View>
+          <View style={styles.heroBadge}>
+            <Ionicons name="calendar-outline" size={18} color={palette.textPrimary} />
+          </View>
+        </View>
+
+        <Text style={styles.heroSubtitle}>
+          Pick a day, add workouts or tasks, and track what is already done.
+        </Text>
+
+        <View style={styles.heroMetricsRow}>
+          <MetricCard
+            label="Active account"
+            value={user?.email ?? "Not signed in"}
+          />
+          <MetricCard label="Selected day" value={selectedIso} />
+          <MetricCard label="Completed" value={`${completedCount}/${plans.length}`} />
+        </View>
+      </LinearGradient>
+
+      {!isSupabaseConfigured ? (
+        <View style={styles.warningCard}>
+          <Text style={styles.warningTitle}>Supabase setup needed</Text>
+          <Text style={styles.warningText}>
+            Add the Expo public env vars first, then this planner will persist
+            workouts instead of staying empty.
           </Text>
-          <TouchableOpacity onPress={goNext} style={styles.chev}>
-            <Text style={styles.chevText}>›</Text>
+        </View>
+      ) : null}
+
+      <View style={styles.calendarShell}>
+        <View style={styles.monthHeader}>
+          <TouchableOpacity
+            onPress={() => animateMonthChange("previous")}
+            style={styles.monthButton}
+          >
+            <Ionicons name="chevron-back" size={18} color={palette.textPrimary} />
+          </TouchableOpacity>
+
+          <Text style={styles.monthTitle}>
+            {currentMonth.toLocaleString(undefined, { month: "long" })}{" "}
+            {currentMonth.getFullYear()}
+          </Text>
+
+          <TouchableOpacity
+            onPress={() => animateMonthChange("next")}
+            style={styles.monthButton}
+          >
+            <Ionicons name="chevron-forward" size={18} color={palette.textPrimary} />
           </TouchableOpacity>
         </View>
 
-        <View style={{ width: 48 }} />
-      </View>
+        <View style={styles.weekdaysRow}>
+          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((weekday) => (
+            <Text key={weekday} style={styles.weekday}>
+              {weekday}
+            </Text>
+          ))}
+        </View>
 
-      <View style={styles.weekdaysRow}>
-        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((w) => (
-          <Text key={w} style={styles.weekday}>
-            {w}
-          </Text>
-        ))}
-      </View>
+        <View {...panResponder.panHandlers} style={styles.calendarGestureArea}>
+          <Animated.View style={{ width, transform: [{ translateX }] }}>
+            <View style={{ width }}>
+              <View style={styles.grid}>
+                {monthDays.map((date, index) => {
+                  const iso = date ? isoDateString(date) : null;
+                  const isSelected = iso === selectedIso;
+                  const isToday = iso === isoDateString(new Date());
+                  const planCount = iso ? planSummary[iso] ?? 0 : 0;
 
-      <View {...panResponder.panHandlers} style={{ overflow: "hidden" }}>
-        <Animated.View style={{ width: WIDTH, transform: [{ translateX }] }}>
-          <View style={{ width: WIDTH }}>
-            <View style={styles.grid}>
-              {curDays.map((d, i) => renderDayCell(d, i))}
+                  return (
+                    <TouchableOpacity
+                      key={iso ?? `empty-${index}`}
+                      style={[
+                        styles.dayCell,
+                        isSelected ? styles.dayCellSelected : null,
+                      ]}
+                      onPress={() => date && setSelectedDate(date)}
+                      disabled={!date}
+                    >
+                      <Text
+                        style={[
+                          styles.dayText,
+                          isToday ? styles.todayText : null,
+                          isSelected ? styles.dayTextSelected : null,
+                          !date ? styles.dayTextEmpty : null,
+                        ]}
+                      >
+                        {date ? date.getDate() : ""}
+                      </Text>
+                      {planCount > 0 ? (
+                        <View style={styles.planCountPill}>
+                          <Text style={styles.planCountText}>{planCount}</Text>
+                        </View>
+                      ) : null}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
-          </View>
-        </Animated.View>
-        {cover ? <View pointerEvents="none" style={styles.cover} /> : null}
+          </Animated.View>
+          {cover ? <View pointerEvents="none" style={styles.cover} /> : null}
+        </View>
       </View>
 
-      <View style={styles.eventsPanel}>
-        <Text style={styles.eventsTitle}>
-          Planned for {selected.toDateString()}
-        </Text>
-        {events.length === 0 ? (
-          <Text style={styles.noEvents}>No workouts planned for this day.</Text>
+      <View style={styles.panel}>
+        <View style={styles.panelHeader}>
+          <View>
+            <Text style={styles.panelTitle}>Plan for {selectedDate.toDateString()}</Text>
+            <Text style={styles.panelSubtitle}>
+              Add workouts, recovery work, or simple training tasks.
+            </Text>
+          </View>
+          {loadingPlans ? <ActivityIndicator color={palette.accent} /> : null}
+        </View>
+
+        <Text style={styles.inputLabel}>Task or workout title</Text>
+        <TextInput
+          value={draftTitle}
+          onChangeText={setDraftTitle}
+          placeholder="Leg day, mobility flow, long walk..."
+          placeholderTextColor={palette.textMuted}
+          style={styles.input}
+        />
+
+        <Text style={styles.inputLabel}>Category</Text>
+        <TextInput
+          value={draftCategory}
+          onChangeText={setDraftCategory}
+          placeholder="Strength"
+          placeholderTextColor={palette.textMuted}
+          style={styles.input}
+        />
+
+        <Text style={styles.inputLabel}>Notes</Text>
+        <TextInput
+          value={draftNotes}
+          onChangeText={setDraftNotes}
+          placeholder="Focus points, intensity, sets, recovery reminders..."
+          placeholderTextColor={palette.textMuted}
+          style={[styles.input, styles.notesInput]}
+          multiline
+        />
+
+        <TouchableOpacity
+          style={[styles.primaryButton, savingPlan ? styles.primaryButtonDisabled : null]}
+          onPress={handleCreatePlan}
+          disabled={savingPlan || !isSupabaseConfigured || !user}
+        >
+          {savingPlan ? (
+            <ActivityIndicator color={palette.textPrimary} />
+          ) : (
+            <>
+              <Ionicons name="add-circle-outline" size={18} color={palette.textPrimary} />
+              <Text style={styles.primaryButtonText}>Add to selected day</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.panel}>
+        <View style={styles.panelHeader}>
+          <View>
+            <Text style={styles.panelTitle}>Scheduled items</Text>
+            <Text style={styles.panelSubtitle}>
+              Tap complete when you finish, or remove a plan you no longer need.
+            </Text>
+          </View>
+        </View>
+
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+        {plans.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="moon-outline" size={28} color={palette.textMuted} />
+            <Text style={styles.emptyTitle}>Nothing scheduled yet</Text>
+            <Text style={styles.emptyText}>
+              This day is clear. Add a workout or recovery task to start building
+              the plan.
+            </Text>
+          </View>
         ) : (
-          events.map((e) => (
-            <View key={e.id} style={styles.eventRow}>
-              <Text style={styles.eventText}>{e.title}</Text>
+          plans.map((plan) => (
+            <View key={plan.id} style={styles.planCard}>
+              <View style={styles.planTopRow}>
+                <View style={styles.planMeta}>
+                  <Text style={styles.planCategory}>{plan.category || "Workout"}</Text>
+                  <Text
+                    style={[
+                      styles.planStatus,
+                      plan.status === "done" ? styles.planStatusDone : null,
+                    ]}
+                  >
+                    {plan.status === "done" ? "Completed" : "Planned"}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.deleteButton}
+                  onPress={() => handleDeletePlan(plan.id)}
+                >
+                  <Ionicons name="trash-outline" size={18} color="#FDBA74" />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.planTitle}>{plan.title}</Text>
+              {plan.notes ? <Text style={styles.planNotes}>{plan.notes}</Text> : null}
+
+              <TouchableOpacity
+                style={[
+                  styles.statusButton,
+                  plan.status === "done" ? styles.statusButtonDone : null,
+                ]}
+                onPress={() => handleToggleStatus(plan)}
+              >
+                <Ionicons
+                  name={plan.status === "done" ? "checkmark-circle" : "ellipse-outline"}
+                  size={18}
+                  color={palette.textPrimary}
+                />
+                <Text style={styles.statusButtonText}>
+                  {plan.status === "done" ? "Mark as planned" : "Mark as done"}
+                </Text>
+              </TouchableOpacity>
             </View>
           ))
         )}
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
-// small renderer for a day cell to avoid repeating code
-function renderDayCell(
-  d: Date | null,
-  panel: string,
-  idx: number,
-  selected: Date,
-  setSelected: (d: Date) => void,
-) {
-  const isToday = d ? isoDateString(d) === isoDateString(new Date()) : false;
-  const isSelected = d ? isoDateString(d) === isoDateString(selected) : false;
-  const keyId = d ? `day-${isoDateString(d)}` : `${panel}-empty-${idx}`;
+function MetricCard({ label, value }: { label: string; value: string }) {
   return (
-    <TouchableOpacity
-      key={keyId}
-      style={[styles.cell, isSelected ? styles.cellSelected : null]}
-      onPress={() => d && setSelected(d)}
-      activeOpacity={d ? 0.7 : 1}
-    >
-      <Text
-        style={[
-          styles.cellText,
-          isToday ? styles.cellTodayText : null,
-          isSelected ? styles.cellTextSelected : null,
-        ]}
-      >
-        {d ? d.getDate() : ""}
+    <View style={styles.metricCard}>
+      <Text style={styles.metricLabel}>{label}</Text>
+      <Text style={styles.metricValue} numberOfLines={1}>
+        {value}
       </Text>
-      {d && SAMPLE_EVENTS[isoDateString(d)] ? (
-        <View style={styles.dot} />
-      ) : null}
-    </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#020817",
-    paddingTop: 16,
+    backgroundColor: palette.background,
   },
-  headerRow: {
+  content: {
+    padding: 16,
+    paddingBottom: 32,
+  },
+  heroCard: {
+    borderRadius: 28,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    marginBottom: 16,
+  },
+  heroHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    marginBottom: 12,
+    alignItems: "flex-start",
   },
-  backText: { color: "#9CA3AF" },
-  headerCenter: { flexDirection: "row", alignItems: "center" },
-  headerTitle: {
-    color: "#FFFFFF",
+  heroEyebrow: {
+    color: "#FDBA74",
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 10,
+  },
+  heroTitle: {
+    color: palette.textPrimary,
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: "800",
+    maxWidth: 260,
+  },
+  heroSubtitle: {
+    color: palette.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 10,
+  },
+  heroBadge: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heroMetricsRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 18,
+  },
+  metricCard: {
+    flex: 1,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 18,
+    padding: 12,
+  },
+  metricLabel: {
+    color: palette.textMuted,
+    fontSize: 11,
+    marginBottom: 6,
+  },
+  metricValue: {
+    color: palette.textPrimary,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  warningCard: {
+    backgroundColor: "rgba(245, 158, 11, 0.12)",
+    borderColor: "rgba(245, 158, 11, 0.24)",
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
+  },
+  warningTitle: {
+    color: "#FDE68A",
     fontSize: 16,
     fontWeight: "700",
-    marginHorizontal: 8,
+    marginBottom: 6,
   },
-  chev: { paddingHorizontal: 6 },
-  chevText: { color: "#FFFFFF", fontSize: 20 },
+  warningText: {
+    color: palette.textSecondary,
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  calendarShell: {
+    backgroundColor: palette.surface,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: palette.cardBorder,
+    padding: 16,
+    marginBottom: 16,
+  },
+  monthHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  monthButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: palette.backgroundElevated,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  monthTitle: {
+    color: palette.textPrimary,
+    fontSize: 18,
+    fontWeight: "700",
+  },
   weekdaysRow: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    paddingHorizontal: 8,
-    marginBottom: 8,
+    justifyContent: "space-between",
+    marginBottom: 10,
   },
-  weekday: { color: "#9CA3AF", width: 44, textAlign: "center", fontSize: 12 },
+  weekday: {
+    width: "14.28%",
+    textAlign: "center",
+    color: palette.textMuted,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  calendarGestureArea: {
+    overflow: "hidden",
+  },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    paddingHorizontal: 8,
-    paddingBottom: 8,
   },
-  cell: {
+  dayCell: {
     width: "14.28%",
-    height: 64,
+    minHeight: 64,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
+    marginBottom: 6,
+  },
+  dayCellSelected: {
+    backgroundColor: palette.accentSoft,
+  },
+  dayText: {
+    color: palette.textSecondary,
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  dayTextSelected: {
+    color: palette.textPrimary,
+  },
+  todayText: {
+    color: "#FFD580",
+  },
+  dayTextEmpty: {
+    color: "transparent",
+  },
+  planCountPill: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 999,
+    backgroundColor: palette.accent,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 5,
+    marginTop: 6,
+  },
+  planCountText: {
+    color: palette.textPrimary,
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  panel: {
+    backgroundColor: palette.surface,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: palette.cardBorder,
+    padding: 18,
+    marginBottom: 16,
+  },
+  panelHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+  panelTitle: {
+    color: palette.textPrimary,
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  panelSubtitle: {
+    color: palette.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
+    maxWidth: 270,
+  },
+  inputLabel: {
+    color: palette.textSecondary,
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: palette.backgroundElevated,
+    color: palette.textPrimary,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: palette.cardBorder,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontSize: 15,
+    marginBottom: 14,
+  },
+  notesInput: {
+    minHeight: 88,
+    textAlignVertical: "top",
+  },
+  primaryButton: {
+    backgroundColor: palette.accent,
+    borderRadius: 18,
+    paddingVertical: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+  },
+  primaryButtonDisabled: {
+    opacity: 0.6,
+  },
+  primaryButtonText: {
+    color: palette.textPrimary,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  errorText: {
+    color: "#FDBA74",
+    fontSize: 13,
+    marginBottom: 12,
+  },
+  emptyState: {
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: palette.cardBorder,
+    backgroundColor: "rgba(2, 8, 23, 0.5)",
+    alignItems: "center",
+  },
+  emptyTitle: {
+    color: palette.textPrimary,
+    fontSize: 16,
+    fontWeight: "700",
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  emptyText: {
+    color: palette.textMuted,
+    fontSize: 13,
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  planCard: {
+    borderRadius: 20,
+    padding: 16,
+    backgroundColor: "rgba(17, 28, 51, 0.94)",
+    borderWidth: 1,
+    borderColor: palette.cardBorder,
+    marginBottom: 12,
+  },
+  planTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  planMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  planCategory: {
+    color: "#FDBA74",
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  planStatus: {
+    color: palette.textMuted,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  planStatusDone: {
+    color: "#86EFAC",
+  },
+  deleteButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(249, 115, 22, 0.12)",
     justifyContent: "center",
     alignItems: "center",
   },
-  cellText: { color: "#E5E7EB" },
-  cellFaded: { color: "#6B7280" },
-  cellTodayText: { color: "#FFCC99", fontWeight: "700" },
-  cellSelected: { backgroundColor: "rgba(255,105,0,0.18)", borderRadius: 8 },
-  cellTextSelected: { color: "#FFFFFF", fontWeight: "700" },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#FF6900",
-    marginTop: 6,
+  planTitle: {
+    color: palette.textPrimary,
+    fontSize: 17,
+    fontWeight: "700",
+    marginBottom: 6,
   },
-  eventsPanel: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 0.5,
-    borderTopColor: "rgba(255,255,255,0.04)",
+  planNotes: {
+    color: palette.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 14,
   },
-  eventsTitle: { color: "#FFFFFF", fontWeight: "700", marginBottom: 8 },
-  noEvents: { color: "#9CA3AF" },
-  eventRow: {
-    paddingVertical: 8,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "rgba(255,255,255,0.02)",
+  statusButton: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 999,
+    backgroundColor: "rgba(56, 189, 248, 0.14)",
+    borderWidth: 1,
+    borderColor: "rgba(56, 189, 248, 0.28)",
+    paddingHorizontal: 12,
+    paddingVertical: 9,
   },
-  eventText: { color: "#E5E7EB" },
+  statusButtonDone: {
+    backgroundColor: "rgba(34, 197, 94, 0.16)",
+    borderColor: "rgba(34, 197, 94, 0.28)",
+  },
+  statusButtonText: {
+    color: palette.textPrimary,
+    fontSize: 13,
+    fontWeight: "700",
+  },
   cover: {
     position: "absolute",
     left: 0,
     right: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: "#020817",
+    backgroundColor: palette.surface,
   },
 });
