@@ -38,7 +38,10 @@ const WORKOUT_CATEGORIES = [
 ] as const;
 
 function isoDateString(date: Date) {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function getMonthGrid(baseDate: Date) {
@@ -83,6 +86,7 @@ export default function CalendarScreen() {
     React.useState<WorkoutPlanRecord | null>(null);
   const [deletingPlan, setDeletingPlan] = React.useState(false);
   const [isMonthTransitioning, setIsMonthTransitioning] = React.useState(false);
+  const [isMonthGestureActive, setIsMonthGestureActive] = React.useState(false);
 
   const monthDays = React.useMemo(() => getMonthGrid(currentMonth), [currentMonth]);
   const selectedIso = isoDateString(selectedDate);
@@ -157,32 +161,11 @@ export default function CalendarScreen() {
         useNativeDriver: true,
       }).start(() => {
         setCurrentMonth((current) => {
-          const nextMonth = new Date(
+          return new Date(
             current.getFullYear(),
             current.getMonth() + (direction === "next" ? 1 : -1),
             1,
           );
-
-          if (
-            selectedDate.getFullYear() === current.getFullYear() &&
-            selectedDate.getMonth() === current.getMonth()
-          ) {
-            const clampedDate = new Date(
-              nextMonth.getFullYear(),
-              nextMonth.getMonth(),
-              Math.min(
-                selectedDate.getDate(),
-                new Date(
-                  nextMonth.getFullYear(),
-                  nextMonth.getMonth() + 1,
-                  0,
-                ).getDate(),
-              ),
-            );
-            setSelectedDate(clampedDate);
-          }
-
-          return nextMonth;
         });
 
         monthTransition.setValue(incomingOffset);
@@ -196,25 +179,35 @@ export default function CalendarScreen() {
         });
       });
     },
-    [isMonthTransitioning, monthTransition, selectedDate],
+    [isMonthTransitioning, monthTransition],
   );
 
   const panResponder = React.useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, gesture) =>
-        Math.abs(gesture.dx) > 10 && Math.abs(gesture.dy) < 30,
+        Math.abs(gesture.dx) > 8 &&
+        Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.15,
+      onPanResponderGrant: () => {
+        setIsMonthGestureActive(true);
+      },
       onPanResponderRelease: (_, gesture) => {
         const swipeThreshold = 44;
 
         if (gesture.dx < -swipeThreshold) {
           changeMonth("next");
+          setIsMonthGestureActive(false);
           return;
         }
 
         if (gesture.dx > swipeThreshold) {
           changeMonth("previous");
         }
+
+        setIsMonthGestureActive(false);
+      },
+      onPanResponderTerminate: () => {
+        setIsMonthGestureActive(false);
       },
     }),
   ).current;
@@ -327,6 +320,7 @@ export default function CalendarScreen() {
       style={styles.screen}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
+      scrollEnabled={!isMonthGestureActive}
     >
       <LinearGradient colors={gradients.hero} style={styles.heroCard}>
         <View style={styles.heroHeader}>
@@ -822,6 +816,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 16,
     marginBottom: 6,
+    overflow: "hidden",
   },
   dayCellSelected: {
     backgroundColor: palette.accentSoft,
@@ -831,11 +826,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
   },
-  dayTextSelected: {
-    color: palette.textPrimary,
-  },
   todayText: {
     color: "#FFD580",
+  },
+  dayTextSelected: {
+    color: palette.textPrimary,
   },
   dayTextEmpty: {
     color: "transparent",

@@ -65,7 +65,10 @@ function RootLayoutContent() {
       <StatusBar style="light" />
 
       <View style={{ flex: 1 }}>
-        <Stack screenOptions={{ headerShown: false }} />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="login" options={{ gestureEnabled: false }} />
+          <Stack.Screen name="signup" options={{ gestureEnabled: false }} />
+        </Stack>
       </View>
 
       <BottomNav />

@@ -100,8 +100,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (error) throw error;
 
-    if (data.user) {
-      await ensureProfileExists(data.user);
+    if (data.session?.user) {
+      await ensureProfileExists(data.session.user);
     }
   }, []);
 

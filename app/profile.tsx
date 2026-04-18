@@ -16,6 +16,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
 import {
   ActivityIndicator,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -78,6 +79,25 @@ function splitFullName(fullName: string) {
   };
 }
 
+function getExampleHint(field: "firstName" | "lastName" | "goal" | "age" | "height" | "weight" | "weeklyTarget") {
+  switch (field) {
+    case "firstName":
+      return "Ex: Bryan";
+    case "lastName":
+      return "Ex: Haddad";
+    case "goal":
+      return "Ex: Build strength and improve conditioning";
+    case "age":
+      return "Ex: 24";
+    case "height":
+      return "Ex: 178";
+    case "weight":
+      return "Ex: 73";
+    case "weeklyTarget":
+      return "Ex: 4";
+  }
+}
+
 export default function ProfileScreen() {
   const { signOut, user } = useAuth();
   const [profile, setProfile] = React.useState<ProfileRecord>(() =>
@@ -88,6 +108,7 @@ export default function ProfileScreen() {
   const [signingOut, setSigningOut] = React.useState(false);
   const [message, setMessage] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [logoutPromptVisible, setLogoutPromptVisible] = React.useState(false);
   const nameParts = React.useMemo(
     () => splitFullName(profile.full_name),
     [profile.full_name],
@@ -114,7 +135,7 @@ export default function ProfileScreen() {
           ...createEmptyProfile(user.id, user.email ?? null),
           ...data,
         });
-        setMessage("Profile loaded from Supabase.");
+        setMessage("Profile loaded from Database.");
       } else {
         const createdProfile = await ensureProfileExists(user);
         setProfile(createdProfile);
@@ -181,6 +202,7 @@ export default function ProfileScreen() {
       setError(nextError);
     } finally {
       setSigningOut(false);
+      setLogoutPromptVisible(false);
     }
   }, [signOut]);
 
@@ -268,8 +290,13 @@ export default function ProfileScreen() {
 
         <View style={styles.identityCard}>
           <Text style={styles.identityLabel}>Full name</Text>
-          <Text style={styles.identityValue}>
-            {profile.full_name.trim() || "Add your name below"}
+          <Text
+            style={[
+              styles.identityValue,
+              !profile.full_name.trim() ? styles.identityValueMuted : null,
+            ]}
+          >
+            {profile.full_name.trim() || "Not added yet"}
           </Text>
         </View>
 
@@ -306,7 +333,7 @@ export default function ProfileScreen() {
                   full_name: `${value.trim()} ${splitFullName(current.full_name).lastName}`.trim(),
                 }))
               }
-              placeholder="First name"
+              placeholder={getExampleHint("firstName")}
               placeholderTextColor={palette.textMuted}
               style={styles.input}
             />
@@ -322,7 +349,7 @@ export default function ProfileScreen() {
                   full_name: `${splitFullName(current.full_name).firstName} ${value.trim()}`.trim(),
                 }))
               }
-              placeholder="Last name"
+              placeholder={getExampleHint("lastName")}
               placeholderTextColor={palette.textMuted}
               style={styles.input}
             />
@@ -344,7 +371,7 @@ export default function ProfileScreen() {
           onChangeText={(value) =>
             setProfile((current) => ({ ...current, fitness_goal: value }))
           }
-          placeholder="Build strength, improve conditioning..."
+          placeholder={getExampleHint("goal")}
           placeholderTextColor={palette.textMuted}
           style={[styles.input, styles.multilineInput]}
           multiline
@@ -392,7 +419,7 @@ export default function ProfileScreen() {
                   age: toNumberOrNull(value),
                 }))
               }
-              placeholder="24"
+              placeholder={getExampleHint("age")}
               placeholderTextColor={palette.textMuted}
               keyboardType="number-pad"
               style={styles.input}
@@ -409,7 +436,7 @@ export default function ProfileScreen() {
                   height_cm: toNumberOrNull(value),
                 }))
               }
-              placeholder="178"
+              placeholder={getExampleHint("height")}
               placeholderTextColor={palette.textMuted}
               keyboardType="number-pad"
               style={styles.input}
@@ -428,7 +455,7 @@ export default function ProfileScreen() {
                   weight_kg: toNumberOrNull(value),
                 }))
               }
-              placeholder="73"
+              placeholder={getExampleHint("weight")}
               placeholderTextColor={palette.textMuted}
               keyboardType="decimal-pad"
               style={styles.input}
@@ -445,7 +472,7 @@ export default function ProfileScreen() {
                   weekly_target: toNumberOrNull(value),
                 }))
               }
-              placeholder="4"
+              placeholder={getExampleHint("weeklyTarget")}
               placeholderTextColor={palette.textMuted}
               keyboardType="number-pad"
               style={styles.input}
@@ -486,7 +513,7 @@ export default function ProfileScreen() {
           styles.secondaryActionButton,
           signingOut ? styles.primaryButtonDisabled : null,
         ]}
-        onPress={handleSignOut}
+        onPress={() => setLogoutPromptVisible(true)}
         disabled={signingOut}
       >
         {signingOut ? (
@@ -502,6 +529,53 @@ export default function ProfileScreen() {
           </>
         )}
       </TouchableOpacity>
+
+      <Modal
+        visible={logoutPromptVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!signingOut) setLogoutPromptVisible(false);
+        }}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalIconWrap}>
+              <Ionicons name="log-out-outline" size={22} color="#93C5FD" />
+            </View>
+            <Text style={styles.modalTitle}>Log out now?</Text>
+            <Text style={styles.modalText}>
+              You’ll return to the login screen and need to sign back in to
+              manage your profile and workout plans.
+            </Text>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalSecondaryButton}
+                onPress={() => setLogoutPromptVisible(false)}
+                disabled={signingOut}
+              >
+                <Text style={styles.modalSecondaryText}>Stay signed in</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalPrimaryButton,
+                  signingOut ? styles.primaryButtonDisabled : null,
+                ]}
+                onPress={handleSignOut}
+                disabled={signingOut}
+              >
+                {signingOut ? (
+                  <ActivityIndicator color={palette.textPrimary} />
+                ) : (
+                  <Text style={styles.modalPrimaryText}>Log out</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -643,6 +717,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
+  identityValueMuted: {
+    color: palette.textMuted,
+    fontStyle: "italic",
+  },
   inputLabel: {
     color: palette.textSecondary,
     fontSize: 13,
@@ -770,6 +848,71 @@ const styles = StyleSheet.create({
   secondaryActionText: {
     color: palette.textPrimary,
     fontSize: 15,
+    fontWeight: "800",
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(2, 8, 23, 0.68)",
+    justifyContent: "center",
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: palette.surfaceStrong,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: palette.cardBorder,
+    padding: 22,
+  },
+  modalIconWrap: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: "rgba(56, 189, 248, 0.14)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  modalTitle: {
+    color: palette.textPrimary,
+    fontSize: 20,
+    fontWeight: "800",
+    marginBottom: 8,
+  },
+  modalText: {
+    color: palette.textSecondary,
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 20,
+  },
+  modalSecondaryButton: {
+    flex: 1,
+    backgroundColor: palette.backgroundElevated,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: palette.cardBorder,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  modalSecondaryText: {
+    color: palette.textPrimary,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  modalPrimaryButton: {
+    flex: 1,
+    backgroundColor: palette.sky,
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalPrimaryText: {
+    color: palette.textPrimary,
+    fontSize: 14,
     fontWeight: "800",
   },
 });

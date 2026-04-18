@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { Link } from "expo-router";
+import { router } from "expo-router";
 import React from "react";
 import {
   ActivityIndicator,
@@ -22,6 +22,7 @@ type AuthCardProps = {
   description: string;
   email: string;
   error: string | null;
+  info?: string | null;
   loading: boolean;
   onEmailChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
@@ -38,6 +39,7 @@ export function AuthCard({
   description,
   email,
   error,
+  info,
   loading,
   onEmailChange,
   onPasswordChange,
@@ -83,6 +85,7 @@ export function AuthCard({
             style={styles.input}
           />
 
+          {info ? <Text style={styles.infoText}>{info}</Text> : null}
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           <TouchableOpacity
@@ -99,9 +102,9 @@ export function AuthCard({
 
           <View style={styles.switchRow}>
             <Text style={styles.switchText}>{alternateText}</Text>
-            <Link href={alternateHref as any} style={styles.switchLink}>
-              {alternateLabel}
-            </Link>
+            <TouchableOpacity onPress={() => router.replace(alternateHref as any)}>
+              <Text style={styles.switchLink}>{alternateLabel}</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
@@ -173,6 +176,12 @@ const styles = StyleSheet.create({
   errorText: {
     color: "#FDBA74",
     fontSize: 13,
+    marginBottom: 12,
+  },
+  infoText: {
+    color: "#93C5FD",
+    fontSize: 13,
+    lineHeight: 19,
     marginBottom: 12,
   },
   primaryButton: {
