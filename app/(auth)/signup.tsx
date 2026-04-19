@@ -1,15 +1,12 @@
 import { router } from "expo-router";
 import React from "react";
-import {
-  Modal,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Modal, Text, TouchableOpacity, View } from "react-native";
 import { AuthCard } from "@/src/components/AuthCard";
 import { useAuth } from "@/src/context/AuthContext";
-import { getSupabaseConfigError, isSupabaseConfigured } from "@/src/lib/supabase";
+import {
+  getSupabaseConfigError,
+  isSupabaseConfigured,
+} from "@/src/lib/supabase";
 import { palette } from "@/src/theme/palette";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -72,26 +69,34 @@ export default function SignupScreen() {
         animationType="fade"
         onRequestClose={() => setVerificationPromptVisible(false)}
       >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalIconWrap}>
+        <View className="flex-1 justify-center bg-[rgba(2,8,23,0.68)] p-5">
+          <View className="rounded-[24px] border border-[rgba(148,163,184,0.18)] bg-[#111C33] p-[22px]">
+            <View className="mb-4 h-[52px] w-[52px] items-center justify-center rounded-full bg-[rgba(34,197,94,0.16)]">
               <Ionicons name="mail-open-outline" size={24} color="#86EFAC" />
             </View>
-            <Text style={styles.modalTitle}>Verify your email</Text>
-            <Text style={styles.modalText}>
+
+            <Text className="mb-2 text-[21px] font-extrabold text-[#F8FAFC]">
+              Verify your email
+            </Text>
+
+            <Text className="text-[14px] leading-[21px] text-[#CBD5E1]">
               We sent a verification link to{" "}
-              <Text style={styles.modalEmail}>{email.trim() || "your inbox"}</Text>.
-              Please open it, verify your account, then log in.
+              <Text className="font-bold text-[#F8FAFC]">
+                {email.trim() || "your inbox"}
+              </Text>
+              . Please open it, verify your account, then log in.
             </Text>
 
             <TouchableOpacity
-              style={styles.modalButton}
+              className="mt-5 items-center justify-center rounded-[16px] bg-[#FF6900] py-[14px]"
               onPress={() => {
                 setVerificationPromptVisible(false);
                 router.replace("/login" as any);
               }}
             >
-              <Text style={styles.modalButtonText}>Back to login</Text>
+              <Text className="text-[14px] font-extrabold text-[#F8FAFC]">
+                Back to login
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -99,56 +104,3 @@ export default function SignupScreen() {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(2, 8, 23, 0.68)",
-    justifyContent: "center",
-    padding: 20,
-  },
-  modalCard: {
-    backgroundColor: palette.surfaceStrong,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: palette.cardBorder,
-    padding: 22,
-  },
-  modalIconWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "rgba(34, 197, 94, 0.16)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-  },
-  modalTitle: {
-    color: palette.textPrimary,
-    fontSize: 21,
-    fontWeight: "800",
-    marginBottom: 8,
-  },
-  modalText: {
-    color: palette.textSecondary,
-    fontSize: 14,
-    lineHeight: 21,
-  },
-  modalEmail: {
-    color: "#F8FAFC",
-    fontWeight: "700",
-  },
-  modalButton: {
-    marginTop: 20,
-    backgroundColor: palette.accent,
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalButtonText: {
-    color: palette.textPrimary,
-    fontSize: 14,
-    fontWeight: "800",
-  },
-});

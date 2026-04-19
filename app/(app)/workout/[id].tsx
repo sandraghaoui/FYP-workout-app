@@ -1,12 +1,10 @@
-// app/workout/[id].tsx
-
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import React from "react";
 import {
   ImageBackground,
   ScrollView,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -22,13 +20,17 @@ export default function WorkoutExerciseScreen() {
 
   if (!workout || workout.exercises.length === 0) {
     return (
-      <View style={styles.screen}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={styles.closeText}>✕</Text>
-          </TouchableOpacity>
+      <View className="flex-1 bg-[#020817]">
+        <View className="px-4 pt-4">
+          <View className="mb-4 flex-row items-center justify-between">
+            <TouchableOpacity onPress={() => router.back()}>
+              <Ionicons name="close" size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+          <Text className="mt-10 text-center text-sm text-white">
+            Workout not found.
+          </Text>
         </View>
-        <Text style={styles.errorText}>Workout not found.</Text>
       </View>
     );
   }
@@ -37,69 +39,108 @@ export default function WorkoutExerciseScreen() {
   const totalExercises = workout.exercises.length;
 
   return (
-    <View style={styles.screen}>
+    <View className="flex-1 bg-[#020817]">
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerClassName="px-4 pb-6 pt-4"
         showsVerticalScrollIndicator={false}
       >
-        {/* Top bar */}
-        <View style={styles.header}>
+        <View className="mb-4 flex-row items-center justify-between">
           <View>
-            <Text style={styles.headerMeta}>
+            <Text className="text-xs text-[#9CA3AF]">
               Exercise 1 of {totalExercises}
             </Text>
-            <Text style={styles.headerTitle}>{exercise.name}</Text>
+            <Text className="mt-1 text-[22px] font-semibold text-white">
+              {exercise.name}
+            </Text>
           </View>
 
           <TouchableOpacity onPress={() => router.back()}>
-            <Text style={styles.closeText}>✕</Text>
+            <Ionicons name="close" size={22} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
-        {/* Image card */}
-        <View style={styles.imageCardWrapper}>
+        <View className="mb-6">
           <ImageBackground
             source={exercise.image}
-            style={styles.imageCard}
-            imageStyle={styles.imageCardRadius}
+            style={{
+              width: "100%",
+              height: 220,
+              borderRadius: 24,
+              overflow: "hidden",
+            }}
+            imageStyle={{ borderRadius: 24 }}
           >
             <LinearGradient
               colors={["rgba(0,0,0,0.4)", "rgba(0,0,0,0.8)"] as const}
               start={{ x: 0.5, y: 0 }}
               end={{ x: 0.5, y: 1 }}
-              style={styles.imageOverlay}
+              style={{
+                position: "absolute",
+                top: 0,
+                right: 0,
+                bottom: 0,
+                left: 0,
+              }}
             />
-            <View style={styles.repsPill}>
-              <Text style={styles.repsText}>{exercise.reps}</Text>
+            <View
+              style={{
+                position: "absolute",
+                top: 16,
+                right: 16,
+                paddingHorizontal: 14,
+                paddingVertical: 6,
+                borderRadius: 999,
+                backgroundColor: "#FF6900",
+              }}
+            >
+              <Text className="text-sm font-semibold text-white">
+                {exercise.reps}
+              </Text>
             </View>
           </ImageBackground>
         </View>
 
-        {/* How to perform */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>How to perform</Text>
-          <Text style={styles.sectionBody}>{exercise.howTo}</Text>
+        <View className="mb-[18px]">
+          <Text className="mb-2 text-[17px] font-semibold text-white">
+            How to perform
+          </Text>
+          <Text className="text-[15px] leading-6 text-[#D1D5DB]">
+            {exercise.howTo}
+          </Text>
         </View>
 
-        {/* Form Tips */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Form Tips</Text>
+        <View className="mb-[18px]">
+          <Text className="mb-2 text-[17px] font-semibold text-white">
+            Form Tips
+          </Text>
           {exercise.tips.map((tip: string, index: number) => (
-            <View key={index} style={styles.tipRow}>
-              <View style={styles.tipNumberPill}>
-                <Text style={styles.tipNumberText}>{index + 1}</Text>
+            <View key={index} className="mb-3 flex-row items-start">
+              <View className="mr-3 mt-0.5 h-6 w-6 items-center justify-center rounded-full bg-[#FF6900]">
+                <Text className="text-xs font-semibold text-white">
+                  {index + 1}
+                </Text>
               </View>
-              <Text style={styles.tipText}>{tip}</Text>
+              <Text className="flex-1 text-[15px] leading-6 text-[#D1D5DB]">
+                {tip}
+              </Text>
             </View>
           ))}
         </View>
       </ScrollView>
 
-      {/* Bottom CTA */}
-      <View style={styles.bottomBar}>
+      <View
+        style={{
+          paddingHorizontal: 16,
+          paddingBottom: 18,
+          paddingTop: 8,
+          borderTopWidth: 0.5,
+          borderTopColor: "rgba(148,163,253,0.12)",
+          backgroundColor: "#020817",
+        }}
+      >
         <TouchableOpacity
           activeOpacity={0.9}
-          style={styles.primaryButton}
+          className="mb-[10px] flex-row items-center justify-center rounded-xl bg-[#FF6900] py-[14px]"
           onPress={() =>
             router.push({
               pathname: "/workout/session/[id]",
@@ -107,153 +148,22 @@ export default function WorkoutExerciseScreen() {
             })
           }
         >
-          <Text style={styles.playIcon}>▶</Text>
-          <Text style={styles.primaryButtonText}>Got it! Start Exercise</Text>
+          <Ionicons
+            name="play"
+            size={16}
+            color="#FFFFFF"
+            style={{ marginRight: 8 }}
+          />
+          <Text className="text-[15px] font-semibold text-white">
+            Got it! Start Exercise
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.skipText}>Skip Demo</Text>
+          <Text className="text-center text-sm text-[#9CA3AF]">Skip Demo</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: "#020817",
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  headerMeta: {
-    color: "#9CA3AF",
-    fontSize: 10,
-  },
-  headerTitle: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "600",
-    marginTop: 2,
-  },
-  closeText: {
-    color: "#FFFFFF",
-    fontSize: 20,
-  },
-  imageCardWrapper: {
-    marginBottom: 24,
-  },
-  imageCard: {
-    width: "100%",
-    height: 220,
-    borderRadius: 24,
-    overflow: "hidden",
-  },
-  imageCardRadius: {
-    borderRadius: 24,
-  },
-  imageOverlay: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  repsPill: {
-    position: "absolute",
-    top: 16,
-    right: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: "#FF6900",
-  },
-  repsText: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  section: {
-    marginBottom: 18,
-  },
-  sectionTitle: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 6,
-  },
-  sectionBody: {
-    color: "#D1D5DB",
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  tipRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 10,
-  },
-  tipNumberPill: {
-    width: 22,
-    height: 22,
-    borderRadius: 999,
-    backgroundColor: "#FF6900",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 10,
-    marginTop: 1,
-  },
-  tipNumberText: {
-    color: "#FFFFFF",
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  tipText: {
-    flex: 1,
-    color: "#D1D5DB",
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  bottomBar: {
-    paddingHorizontal: 16,
-    paddingBottom: 18,
-    paddingTop: 8,
-    borderTopWidth: 0.5,
-    borderTopColor: "rgba(148,163,253,0.12)",
-    backgroundColor: "#020817",
-  },
-  primaryButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FF6900",
-    borderRadius: 12,
-    paddingVertical: 14,
-    marginBottom: 10,
-  },
-  playIcon: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    marginRight: 8,
-  },
-  primaryButtonText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  skipText: {
-    color: "#9CA3AF",
-    fontSize: 12,
-    textAlign: "center",
-  },
-  errorText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    textAlign: "center",
-    marginTop: 40,
-  },
-});

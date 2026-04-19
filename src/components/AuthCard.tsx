@@ -6,7 +6,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -49,22 +48,39 @@ export function AuthCard({
 }: AuthCardProps) {
   return (
     <KeyboardAvoidingView
-      style={styles.screen}
+      className="flex-1 bg-[#020817]"
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerClassName="grow justify-center p-5"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <LinearGradient colors={gradients.hero} style={styles.heroCard}>
-          <Text style={styles.eyebrow}>Supabase auth</Text>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.description}>{description}</Text>
+        <LinearGradient
+          colors={gradients.hero}
+          style={{
+            borderRadius: 28,
+            padding: 22,
+            borderWidth: 1,
+            borderColor: "rgba(255,255,255,0.08)",
+            marginBottom: 16,
+          }}
+        >
+          <Text className="mb-[10px] text-xs font-extrabold uppercase tracking-[0.8px] text-[#FDBA74]">
+            Supabase auth
+          </Text>
+          <Text className="mb-[10px] text-[28px] font-extrabold leading-[34px] text-[#F8FAFC]">
+            {title}
+          </Text>
+          <Text className="text-sm leading-[21px] text-[#CBD5E1]">
+            {description}
+          </Text>
         </LinearGradient>
 
-        <View style={styles.card}>
-          <Text style={styles.inputLabel}>Email</Text>
+        <View className="rounded-[24px] border border-[rgba(148,163,184,0.18)] bg-[rgba(15,23,42,0.84)] p-[18px]">
+          <Text className="mb-2 text-[13px] font-semibold text-[#CBD5E1]">
+            Email
+          </Text>
           <TextInput
             value={email}
             onChangeText={onEmailChange}
@@ -72,38 +88,51 @@ export function AuthCard({
             keyboardType="email-address"
             placeholder="name@example.com"
             placeholderTextColor={palette.textMuted}
-            style={styles.input}
+            className="mb-[14px] rounded-2xl border border-[rgba(148,163,184,0.18)] bg-[#0B1120] px-[14px] py-[13px] text-[15px] text-[#F8FAFC]"
           />
 
-          <Text style={styles.inputLabel}>Password</Text>
+          <Text className="mb-2 text-[13px] font-semibold text-[#CBD5E1]">
+            Password
+          </Text>
           <TextInput
             value={password}
             onChangeText={onPasswordChange}
             secureTextEntry
             placeholder="Minimum 6 characters"
             placeholderTextColor={palette.textMuted}
-            style={styles.input}
+            className="mb-[14px] rounded-2xl border border-[rgba(148,163,184,0.18)] bg-[#0B1120] px-[14px] py-[13px] text-[15px] text-[#F8FAFC]"
           />
 
-          {info ? <Text style={styles.infoText}>{info}</Text> : null}
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {info ? (
+            <Text className="mb-3 text-[13px] leading-[19px] text-[#93C5FD]">
+              {info}
+            </Text>
+          ) : null}
+          {error ? (
+            <Text className="mb-3 text-[13px] text-[#FDBA74]">{error}</Text>
+          ) : null}
 
           <TouchableOpacity
-            style={[styles.primaryButton, loading ? styles.primaryButtonDisabled : null]}
+            className="mt-1 items-center justify-center rounded-[18px] bg-[#FF6900] py-4"
+            style={loading ? { opacity: 0.65 } : undefined}
             onPress={onSubmit}
             disabled={loading}
           >
             {loading ? (
               <ActivityIndicator color={palette.textPrimary} />
             ) : (
-              <Text style={styles.primaryButtonText}>{buttonLabel}</Text>
+              <Text className="text-[15px] font-extrabold text-[#F8FAFC]">
+                {buttonLabel}
+              </Text>
             )}
           </TouchableOpacity>
 
-          <View style={styles.switchRow}>
-            <Text style={styles.switchText}>{alternateText}</Text>
+          <View className="mt-[18px] flex-row items-center justify-center">
+            <Text className="text-[13px] text-[#94A3B8]">{alternateText}</Text>
             <TouchableOpacity onPress={() => router.replace(alternateHref as any)}>
-              <Text style={styles.switchLink}>{alternateLabel}</Text>
+              <Text className="ml-[6px] text-[13px] font-bold text-[#FDBA74]">
+                {alternateLabel}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -111,109 +140,3 @@ export function AuthCard({
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: palette.background,
-  },
-  content: {
-    flexGrow: 1,
-    justifyContent: "center",
-    padding: 20,
-  },
-  heroCard: {
-    borderRadius: 28,
-    padding: 22,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
-    marginBottom: 16,
-  },
-  eyebrow: {
-    color: "#FDBA74",
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    marginBottom: 10,
-  },
-  title: {
-    color: palette.textPrimary,
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: "800",
-    marginBottom: 10,
-  },
-  description: {
-    color: palette.textSecondary,
-    fontSize: 14,
-    lineHeight: 21,
-  },
-  card: {
-    backgroundColor: palette.surface,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: palette.cardBorder,
-    padding: 18,
-  },
-  inputLabel: {
-    color: palette.textSecondary,
-    fontSize: 13,
-    fontWeight: "600",
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: palette.backgroundElevated,
-    color: palette.textPrimary,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: palette.cardBorder,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-    fontSize: 15,
-    marginBottom: 14,
-  },
-  errorText: {
-    color: "#FDBA74",
-    fontSize: 13,
-    marginBottom: 12,
-  },
-  infoText: {
-    color: "#93C5FD",
-    fontSize: 13,
-    lineHeight: 19,
-    marginBottom: 12,
-  },
-  primaryButton: {
-    backgroundColor: palette.accent,
-    borderRadius: 18,
-    paddingVertical: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 4,
-  },
-  primaryButtonDisabled: {
-    opacity: 0.65,
-  },
-  primaryButtonText: {
-    color: palette.textPrimary,
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  switchRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 18,
-  },
-  switchText: {
-    color: palette.textMuted,
-    fontSize: 13,
-  },
-  switchLink: {
-    color: "#FDBA74",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-});
