@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Exercise, Workout, workouts } from "../../constants/workouts";
+import { Exercise, Workout, workouts } from "../../../constants/workouts";
 
 export default function WorkoutExerciseScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();

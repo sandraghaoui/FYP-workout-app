@@ -10,7 +10,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { workouts, Workout } from "../constants/workouts";
+import { workouts, Workout } from "../../constants/workouts";
 
 const CARD_HEIGHT = 200;
 
@@ -25,7 +25,7 @@ export default function HomeScreen() {
         {/* HERO */}
         <View style={styles.heroWrapper}>
           <ImageBackground
-            source={require("../assets/images/image3.png")}
+            source={require("../../assets/images/image3.png")}
             style={styles.heroImage}
             imageStyle={styles.heroImageRadius}
           >

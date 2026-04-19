@@ -13,9 +13,11 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Exercise, Workout, workouts } from "../../../constants/workouts";
+import { Exercise, Workout, workouts } from "../../../../constants/workouts";
 
 /* ===================== TYPES ===================== */
+
+type BackendMode = "squat" | "pushup" | "curl" | "crunch";
 
 type FrameStatePayload = {
   tracking?: {
@@ -76,6 +78,7 @@ export default function WorkoutSessionScreen() {
   const [trackingReason, setTrackingReason] = useState<string>("-");
   const [lostFrames, setLostFrames] = useState<number>(0);
   const [cues, setCues] = useState<string[]>([]);
+  const [feedbackLog, setFeedbackLog] = useState<string[]>([]);
 
   // Debug snippet (small)
   const [lastMsgType, setLastMsgType] = useState<string>("-");
@@ -84,11 +87,16 @@ export default function WorkoutSessionScreen() {
     v: number;
     frame?: number;
   } | null>(null);
+  const [lastRttMs, setLastRttMs] = useState<number | null>(null);
+  const [avgRttMs, setAvgRttMs] = useState<number | null>(null);
+  const [responsesPerSecond, setResponsesPerSecond] = useState<number | null>(
+    null,
+  );
 
   // -------------------------
   // WS URL
   // -------------------------
-  const WS_URL = useMemo(() => "wss://fyp-t6nc.onrender.com/ws/infer", []);
+  const WS_URL = useMemo(() => "wss://fypbacktest.onrender.com/ws/infer", []);
 
   // -------------------------
   // Workout lookup
@@ -116,7 +124,7 @@ export default function WorkoutSessionScreen() {
   const totalExercises = workout.exercises.length;
 
   // Map workout exercise name -> backend mode
-  const backendMode = useMemo(() => {
+  const backendMode = useMemo<BackendMode>(() => {
     const name = (currentExercise?.name || "").toLowerCase();
     if (name.includes("squat")) return "squat";
     if (name.includes("push")) return "pushup";
@@ -125,14 +133,27 @@ export default function WorkoutSessionScreen() {
     return "squat";
   }, [currentExercise?.name]);
 
-  // Keep original dummy fallback if backend not sending yet
-  const doneReps = repCount ?? 9;
-  const totalReps = 15; // dummy
-  const remainingReps = Math.max(totalReps - doneReps, 0);
-  const completion = 20; // dummy % complete
+  const totalReps = useMemo(() => {
+    const match = currentExercise.reps.match(/\d+/);
+    return match ? Number(match[0]) : null;
+  }, [currentExercise.reps]);
+
+  const doneReps = repCount ?? 0;
+  const remainingReps =
+    totalReps !== null ? Math.max(totalReps - doneReps, 0) : null;
+  const completion =
+    totalReps && totalReps > 0
+      ? Math.min(100, Math.round((doneReps / totalReps) * 100))
+      : 0;
 
   const nextExercise: Exercise | undefined =
     workout.exercises[currentIndex + 1];
+
+  const primaryFeedback = useMemo(() => {
+    if (cues.length > 0) return cues[0];
+    if (trackingReason && trackingReason !== "-") return trackingReason;
+    return "Keep your full body in frame for clearer coaching.";
+  }, [cues, trackingReason]);
 
   // -------------------------
   // WS connect with auto-retry
@@ -157,7 +178,6 @@ export default function WorkoutSessionScreen() {
 
         try {
           const msg: WSMessage = JSON.parse(raw);
-
           if ((msg as any)?.error) {
             setLastMsgType("error");
             return;
@@ -217,7 +237,25 @@ export default function WorkoutSessionScreen() {
               else setTrackingReason(r);
             }
             if (typeof lf === "number") setLostFrames(lf);
-            if (Array.isArray(newCues)) setCues(newCues);
+            if (Array.isArray(newCues)) {
+              setCues(newCues);
+              setFeedbackLog((prev) => {
+                const next = [...newCues, ...prev];
+                return Array.from(new Set(next.map((item) => item.trim()).filter(Boolean))).slice(0, 10);
+              });
+            }
+            if (typeof reasonRaw === "string") {
+              const normalizedReason = reasonRaw.trim();
+              if (
+                normalizedReason &&
+                normalizedReason.toLowerCase() !== "ok"
+              ) {
+                setFeedbackLog((prev) => {
+                  const next = [normalizedReason, ...prev];
+                  return Array.from(new Set(next)).slice(0, 10);
+                });
+              }
+            }
 
             return;
           }
@@ -251,6 +289,10 @@ export default function WorkoutSessionScreen() {
       ws.onclose = () => {
         setWsConnected(false);
         wsRef.current = null;
+        setLastRttMs(null);
+        setAvgRttMs(null);
+        setResponsesPerSecond(null);
+        stopStreaming();
         if (!stopped) retryTimer = setTimeout(connect, 1500);
       };
     };
@@ -270,7 +312,6 @@ export default function WorkoutSessionScreen() {
   const sendFrameToWS = (base64Jpeg: string) => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== 1) return;
-
     // avoid lag
     if (ws.bufferedAmount > 1_000_000) return;
 
@@ -295,6 +336,10 @@ export default function WorkoutSessionScreen() {
     if (!wsRef.current || wsRef.current.readyState !== 1) return;
 
     setStreaming(true);
+    setFeedbackLog([]);
+    setLastRttMs(null);
+    setAvgRttMs(null);
+    setResponsesPerSecond(null);
 
     intervalRef.current = setInterval(async () => {
       if (busyRef.current) return;
@@ -327,7 +372,6 @@ export default function WorkoutSessionScreen() {
           ctx.drawImage(vid, 0, 0, targetW, targetH);
           ctx.restore();
 
-          // Lower quality to reduce bandwidth
           const dataUrl = canvas.toDataURL("image/jpeg", 0.6);
           sendFrameToWS(dataUrl);
           return;
@@ -340,7 +384,7 @@ export default function WorkoutSessionScreen() {
         const photo = await cam.takePictureAsync({
           base64: true,
           quality: 0.6,
-          skipProcessing: false, // IMPORTANT: helps orientation/compat
+          skipProcessing: false,
         });
 
         const resized = await ImageManipulator.manipulateAsync(
@@ -377,6 +421,74 @@ export default function WorkoutSessionScreen() {
     if (!permission) return <View style={styles.screen} />;
   }
 
+  const renderCameraOverlay = () => (
+    <>
+      <View style={styles.statusStrip} pointerEvents="none">
+        <View style={styles.statusPill}>
+          <Text style={styles.statusLabel}>Connection</Text>
+          <Text style={styles.statusValue}>
+            {wsConnected ? "Connected" : "Reconnecting"}
+          </Text>
+        </View>
+        <View style={styles.statusPill}>
+          <Text style={styles.statusLabel}>Tracking</Text>
+          <Text style={styles.statusValue}>{trackingStatus.toUpperCase()}</Text>
+        </View>
+        <View style={styles.statusPill}>
+          <Text style={styles.statusLabel}>Stage</Text>
+          <Text style={styles.statusValue}>{stage || "-"}</Text>
+        </View>
+      </View>
+
+      <View style={styles.liveRepBadge} pointerEvents="none">
+        <Text style={styles.liveRepBadgeLabel}>Reps</Text>
+        <Text style={styles.liveRepBadgeValue}>{repCount ?? 0}</Text>
+      </View>
+
+      <View style={styles.primaryFeedbackBox} pointerEvents="none">
+        <Text style={styles.primaryFeedbackLabel}>Live Form Feedback</Text>
+        <Text style={styles.primaryFeedbackText}>{primaryFeedback}</Text>
+      </View>
+
+      <View style={styles.feedbackPanel}>
+        <View style={styles.feedbackPanelHeader}>
+          <Text style={styles.feedbackPanelTitle}>Feedback Log</Text>
+          <Text style={styles.feedbackPanelMeta}>
+            {trackingConf > 0
+              ? `${Math.round(trackingConf * 100)}% tracked`
+              : "Waiting for stable tracking"}
+          </Text>
+        </View>
+
+        <ScrollView
+          style={styles.feedbackScroll}
+          contentContainerStyle={styles.feedbackScrollContent}
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
+        >
+          {feedbackLog.length > 0 ? (
+            feedbackLog.map((item, index) => (
+              <View key={`${item}-${index}`} style={styles.feedbackItem}>
+                <Text style={styles.feedbackBullet}>-</Text>
+                <Text style={styles.feedbackItemText}>{item}</Text>
+              </View>
+            ))
+          ) : (
+            <Text style={styles.feedbackEmptyText}>
+              Start the camera to see posture corrections here.
+            </Text>
+          )}
+        </ScrollView>
+
+        <Text style={styles.feedbackFooter} numberOfLines={1}>
+          {lastMsgType} | RTT {lastRttMs !== null ? `${lastRttMs}ms` : "-"} |
+          {" "}FPS {responsesPerSecond !== null ? responsesPerSecond : "-"} |
+          {" "}Lost {lostFrames}
+        </Text>
+      </View>
+    </>
+  );
+
   const renderCameraArea = () => {
     // Native permission gate
     if (Platform.OS !== "web" && permission && !permission.granted) {
@@ -404,6 +516,7 @@ export default function WorkoutSessionScreen() {
           {/* hidden canvas for capture */}
           {/* @ts-ignore */}
           <canvas ref={webCanvasRef} style={{ display: "none" }} />
+          {renderCameraOverlay()}
 
           <View style={styles.cameraHud}>
             <Text style={styles.cameraHudText}>
@@ -411,6 +524,14 @@ export default function WorkoutSessionScreen() {
             </Text>
             <Text style={styles.cameraHudText}>
               Track: {trackingStatus} ({trackingConf.toFixed(2)})
+            </Text>
+            <Text style={styles.cameraHudText}>
+              RTT: {lastRttMs !== null ? `${lastRttMs}ms` : "-"} | Avg:{" "}
+              {avgRttMs !== null ? `${avgRttMs}ms` : "-"}
+            </Text>
+            <Text style={styles.cameraHudText}>
+              Effective FPS:{" "}
+              {responsesPerSecond !== null ? responsesPerSecond : "-"}
             </Text>
             <Text style={styles.cameraHudText}>Reason: {trackingReason}</Text>
             <Text style={styles.cameraHudText}>Lost: {lostFrames}</Text>
@@ -469,6 +590,7 @@ export default function WorkoutSessionScreen() {
     return (
       <View style={{ position: "relative" }}>
         <CameraView ref={cameraRef} style={styles.cameraArea} facing="front" />
+        {renderCameraOverlay()}
 
         <View style={styles.cameraHud}>
           <Text style={styles.cameraHudText}>
@@ -476,6 +598,14 @@ export default function WorkoutSessionScreen() {
           </Text>
           <Text style={styles.cameraHudText}>
             Track: {trackingStatus} ({trackingConf.toFixed(2)})
+          </Text>
+          <Text style={styles.cameraHudText}>
+            RTT: {lastRttMs !== null ? `${lastRttMs}ms` : "-"} | Avg:{" "}
+            {avgRttMs !== null ? `${avgRttMs}ms` : "-"}
+          </Text>
+          <Text style={styles.cameraHudText}>
+            Effective FPS:{" "}
+            {responsesPerSecond !== null ? responsesPerSecond : "-"}
           </Text>
           <Text style={styles.cameraHudText}>Reason: {trackingReason}</Text>
           <Text style={styles.cameraHudText}>Lost: {lostFrames}</Text>
@@ -570,12 +700,12 @@ export default function WorkoutSessionScreen() {
             <View>
               <Text style={styles.exerciseName}>{currentExercise.name}</Text>
               <Text style={styles.exerciseSubText}>
-                {doneReps}/{totalReps} reps
+                {doneReps}/{totalReps ?? currentExercise.reps} reps
               </Text>
             </View>
             <View style={styles.remainingBlock}>
               <Text style={styles.remainingLabel}>Remaining</Text>
-              <Text style={styles.remainingValue}>{remainingReps}</Text>
+              <Text style={styles.remainingValue}>{remainingReps ?? "-"}</Text>
             </View>
           </View>
 
@@ -736,95 +866,187 @@ const styles = StyleSheet.create({
   },
 
   cameraHud: {
+    display: "none",
+  },
+  cameraHudText: {
+    display: "none",
+  },
+
+  statusStrip: {
     position: "absolute",
     top: 10,
     left: 10,
     right: 10,
-    flexDirection: "column",
+    flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "flex-start",
     gap: 6,
     pointerEvents: "none",
   },
-  cameraHudText: {
+  statusPill: {
+    minWidth: 92,
+    backgroundColor: "rgba(2,6,23,0.78)",
+    borderColor: "rgba(148,163,184,0.22)",
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 14,
+  },
+  statusLabel: {
+    color: "#94A3B8",
+    fontSize: 10,
+    textTransform: "uppercase",
+    marginBottom: 2,
+  },
+  statusValue: {
     color: "#FFFFFF",
-    fontSize: 12,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
+    fontSize: 13,
+    fontWeight: "700",
   },
 
   cuesBox: {
+    display: "none",
+  },
+  cueText: {
+    display: "none",
+  },
+
+  debugBox: {
+    display: "none",
+  },
+  debugText: {
+    display: "none",
+  },
+
+  repBadge: {
+    display: "none",
+  },
+  repBadgeLabel: {
+    display: "none",
+  },
+  repBadgeValue: {
+    display: "none",
+  },
+  liveRepBadge: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    backgroundColor: "rgba(2,6,23,0.8)",
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.22)",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    pointerEvents: "none",
+  },
+  liveRepBadgeLabel: {
+    color: "#94A3B8",
+    fontSize: 10,
+    textTransform: "uppercase",
+  },
+  liveRepBadgeValue: {
+    color: "#FFFFFF",
+    fontSize: 22,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+  reasonBox: {
+    display: "none",
+  },
+  reasonText: {
+    display: "none",
+  },
+  primaryFeedbackBox: {
+    position: "absolute",
+    top: 88,
+    left: 14,
+    right: 14,
+    backgroundColor: "rgba(15,23,42,0.82)",
+    borderWidth: 1,
+    borderColor: "rgba(251,191,36,0.35)",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 18,
+    pointerEvents: "none",
+  },
+  primaryFeedbackLabel: {
+    color: "#FBBF24",
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    marginBottom: 6,
+  },
+  primaryFeedbackText: {
+    color: "#FFFFFF",
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: "700",
+  },
+  feedbackPanel: {
     position: "absolute",
     bottom: 14,
     left: 14,
     right: 14,
-    backgroundColor: "rgba(0,0,0,0.55)",
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    pointerEvents: "none",
+    height: 150,
+    backgroundColor: "rgba(2,6,23,0.86)",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.18)",
+    padding: 14,
   },
-  cueText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    marginBottom: 4,
-  },
-
-  debugBox: {
-    position: "absolute",
-    bottom: 14,
-    right: 14,
-    width: 190,
-    backgroundColor: "rgba(0,0,0,0.35)",
-    borderRadius: 12,
-    padding: 8,
-    pointerEvents: "none",
-  },
-  debugText: {
-    color: "#CBD5E1",
-    fontSize: 10,
-  },
-
-  repBadge: {
-    position: "absolute",
-    top: 10,
-    right: 10,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
+  feedbackPanelHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    justifyContent: "center",
-    pointerEvents: "none",
+    gap: 10,
+    marginBottom: 10,
   },
-  repBadgeLabel: {
-    color: "#9CA3AF",
-    fontSize: 10,
-  },
-  repBadgeValue: {
+  feedbackPanelTitle: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  feedbackPanelMeta: {
+    color: "#94A3B8",
+    fontSize: 11,
+    flexShrink: 1,
+    textAlign: "right",
+  },
+  feedbackScroll: {
+    flex: 1,
+  },
+  feedbackScrollContent: {
+    paddingBottom: 6,
+    gap: 8,
+  },
+  feedbackItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  feedbackBullet: {
+    color: "#F97316",
+    fontSize: 18,
+    lineHeight: 22,
+  },
+  feedbackItemText: {
+    flex: 1,
+    color: "#E2E8F0",
+    fontSize: 15,
+    lineHeight: 21,
     fontWeight: "600",
-    marginTop: 2,
   },
-  reasonBox: {
-    position: "absolute",
-    top: 12,
-    left: 60,
-    right: 60,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    pointerEvents: "none",
+  feedbackEmptyText: {
+    color: "#94A3B8",
+    fontSize: 14,
+    lineHeight: 20,
   },
-  reasonText: {
-    color: "#FBBF24",
-    fontSize: 12,
-    textAlign: "center",
+  feedbackFooter: {
+    marginTop: 10,
+    color: "#64748B",
+    fontSize: 11,
   },
 
   progressRow: {
