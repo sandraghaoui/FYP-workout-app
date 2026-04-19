@@ -26,8 +26,12 @@ type FrameStatePayload = {
   };
   rep_state?: {
     reps?: number;
+    count?: number;
     phase?: string;
+    frame_id?: number;
   };
+  rep_count?: number;
+  frame_id?: number;
   feedback?: {
     cues?: string[];
     metrics?: Record<string, any>;
@@ -65,9 +69,9 @@ export default function WorkoutSessionScreen() {
   // Backend-reflected state
   const [repCount, setRepCount] = useState<number | null>(null);
   const [stage, setStage] = useState<string>("-");
-  const [trackingStatus, setTrackingStatus] = useState<"ok" | "unstable" | "lost">(
-    "lost"
-  );
+  const [trackingStatus, setTrackingStatus] = useState<
+    "ok" | "unstable" | "lost"
+  >("lost");
   const [trackingConf, setTrackingConf] = useState<number>(0);
   const [trackingReason, setTrackingReason] = useState<string>("-");
   const [lostFrames, setLostFrames] = useState<number>(0);
@@ -76,7 +80,10 @@ export default function WorkoutSessionScreen() {
   // Debug snippet (small)
   const [lastMsgType, setLastMsgType] = useState<string>("-");
   const [lastRawShort, setLastRawShort] = useState<string>("");
-  const [lastParsedRep, setLastParsedRep] = useState<{ v: number; frame?: number } | null>(null);
+  const [lastParsedRep, setLastParsedRep] = useState<{
+    v: number;
+    frame?: number;
+  } | null>(null);
 
   // -------------------------
   // WS URL
@@ -87,7 +94,7 @@ export default function WorkoutSessionScreen() {
   // Workout lookup
   // -------------------------
   const workout: Workout | undefined = workouts.find(
-    (w: Workout) => w.id === workoutId
+    (w: Workout) => w.id === workoutId,
   );
 
   if (!workout || workout.exercises.length === 0) {
@@ -165,16 +172,26 @@ export default function WorkoutSessionScreen() {
             // look in a couple of possible fields (payload.rep_state.reps,
             // payload.rep_count, or top-level msg.rep_count).
             const repsRaw =
-              p?.rep_state?.reps ?? p?.rep_state?.count ?? (msg as any)?.rep_count ?? p?.rep_count;
+              p?.rep_state?.reps ??
+              p?.rep_state?.count ??
+              (msg as any)?.rep_count ??
+              p?.rep_count;
             if (repsRaw !== undefined && repsRaw !== null) {
-              const parsed = typeof repsRaw === "number" ? repsRaw : parseInt(String(repsRaw), 10);
+              const parsed =
+                typeof repsRaw === "number"
+                  ? repsRaw
+                  : parseInt(String(repsRaw), 10);
               if (!Number.isNaN(parsed)) {
                 // Set the rep count directly (remove the "only update if greater" logic)
                 setRepCount(parsed);
 
                 // capture frame id if provided for debugging
-                const frameId = (msg as any)?.frame_id ?? p?.frame_id ?? undefined;
-                setLastParsedRep({ v: parsed, frame: typeof frameId === "number" ? frameId : undefined });
+                const frameId =
+                  (msg as any)?.frame_id ?? p?.frame_id ?? undefined;
+                setLastParsedRep({
+                  v: parsed,
+                  frame: typeof frameId === "number" ? frameId : undefined,
+                });
                 // mark debug label to show rep was parsed
                 setLastMsgType(`frame_state(reps=${parsed})`);
               }
@@ -189,12 +206,14 @@ export default function WorkoutSessionScreen() {
             const lf = p?.tracking?.lost_frames;
             const newCues = p?.feedback?.cues;
 
-            if (status === "ok" || status === "unstable" || status === "lost") setTrackingStatus(status);
+            if (status === "ok" || status === "unstable" || status === "lost")
+              setTrackingStatus(status);
             if (typeof conf === "number") setTrackingConf(conf);
             // Normalize tracking reason: don't display bare 'ok' as a failure reason
             if (typeof reasonRaw === "string") {
               const r = reasonRaw.trim();
-              if (r.length === 0 || r.toLowerCase() === "ok") setTrackingReason("-");
+              if (r.length === 0 || r.toLowerCase() === "ok")
+                setTrackingReason("-");
               else setTrackingReason(r);
             }
             if (typeof lf === "number") setLostFrames(lf);
@@ -222,7 +241,7 @@ export default function WorkoutSessionScreen() {
           }
 
           setLastMsgType(
-            (msg as any)?.type ? String((msg as any).type) : "unknown_json"
+            (msg as any)?.type ? String((msg as any).type) : "unknown_json",
           );
         } catch {
           setLastMsgType("non_json");
@@ -264,7 +283,7 @@ export default function WorkoutSessionScreen() {
         image_b64: base64Jpeg.startsWith("data:")
           ? base64Jpeg
           : `data:image/jpeg;base64,${base64Jpeg}`,
-      })
+      }),
     );
   };
 
@@ -331,7 +350,7 @@ export default function WorkoutSessionScreen() {
             compress: 0.65,
             format: ImageManipulator.SaveFormat.JPEG,
             base64: true,
-          }
+          },
         );
 
         if (!resized.base64) return;
@@ -405,9 +424,14 @@ export default function WorkoutSessionScreen() {
           </View>
 
           {/* Reason banner (center-top) */}
-          {((cues && cues.length > 0) || (trackingReason && trackingReason.length)) && (
+          {((cues && cues.length > 0) ||
+            (trackingReason && trackingReason.length)) && (
             <View style={styles.reasonBox} pointerEvents="none">
-              <Text style={styles.reasonText} numberOfLines={2} ellipsizeMode="tail">
+              <Text
+                style={styles.reasonText}
+                numberOfLines={2}
+                ellipsizeMode="tail"
+              >
                 {cues && cues.length > 0 ? cues[0] : trackingReason}
               </Text>
             </View>
@@ -465,9 +489,14 @@ export default function WorkoutSessionScreen() {
         </View>
 
         {/* Reason banner (center-top) */}
-        {((cues && cues.length > 0) || (trackingReason && trackingReason.length)) && (
+        {((cues && cues.length > 0) ||
+          (trackingReason && trackingReason.length)) && (
           <View style={styles.reasonBox} pointerEvents="none">
-            <Text style={styles.reasonText} numberOfLines={2} ellipsizeMode="tail">
+            <Text
+              style={styles.reasonText}
+              numberOfLines={2}
+              ellipsizeMode="tail"
+            >
               {cues && cues.length > 0 ? cues[0] : trackingReason}
             </Text>
           </View>
