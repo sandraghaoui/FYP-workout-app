@@ -105,25 +105,10 @@ export default function WorkoutSessionScreen() {
     (w: Workout) => w.id === workoutId,
   );
 
-  if (!workout || workout.exercises.length === 0) {
-    return (
-      <View style={styles.screen}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.errorText}>Workout not found.</Text>
-      </View>
-    );
-  }
-
-  // MVP: first exercise
   const currentIndex = 0;
-  const currentExercise: Exercise = workout.exercises[currentIndex];
-  const totalExercises = workout.exercises.length;
+  const currentExercise: Exercise | undefined = workout?.exercises[currentIndex];
+  const totalExercises = workout?.exercises.length ?? 0;
 
-  // Map workout exercise name -> backend mode
   const backendMode = useMemo<BackendMode>(() => {
     const name = (currentExercise?.name || "").toLowerCase();
     if (name.includes("squat")) return "squat";
@@ -134,9 +119,9 @@ export default function WorkoutSessionScreen() {
   }, [currentExercise?.name]);
 
   const totalReps = useMemo(() => {
-    const match = currentExercise.reps.match(/\d+/);
+    const match = currentExercise?.reps?.match(/\d+/);
     return match ? Number(match[0]) : null;
-  }, [currentExercise.reps]);
+  }, [currentExercise?.reps]);
 
   const doneReps = repCount ?? 0;
   const remainingReps =
@@ -147,13 +132,30 @@ export default function WorkoutSessionScreen() {
       : 0;
 
   const nextExercise: Exercise | undefined =
-    workout.exercises[currentIndex + 1];
+    workout?.exercises[currentIndex + 1];
 
   const primaryFeedback = useMemo(() => {
     if (cues.length > 0) return cues[0];
     if (trackingReason && trackingReason !== "-") return trackingReason;
     return "Keep your full body in frame for clearer coaching.";
   }, [cues, trackingReason]);
+
+  if (!workout || workout.exercises.length === 0) {
+    return (
+      <View className="flex-1 bg-[#020817]">
+        <View className="px-4 pt-4">
+          <View className="mb-3 flex-row items-center justify-between">
+          <TouchableOpacity onPress={() => router.back()}>
+            <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+        <Text className="mt-10 text-center text-sm text-white">
+          Workout not found.
+        </Text>
+        </View>
+      </View>
+    );
+  }
 
   // -------------------------
   // WS connect with auto-retry
@@ -418,7 +420,7 @@ export default function WorkoutSessionScreen() {
   // Camera permission states (native)
   // -------------------------
   if (Platform.OS !== "web") {
-    if (!permission) return <View style={styles.screen} />;
+    if (!permission) return <View className="flex-1 bg-[#020817]" />;
   }
 
   const renderCameraOverlay = () => (
@@ -494,14 +496,16 @@ export default function WorkoutSessionScreen() {
     if (Platform.OS !== "web" && permission && !permission.granted) {
       return (
         <View style={[styles.cameraArea, styles.cameraPlaceholder]}>
-          <Text style={styles.cameraPlaceholderText}>
+          <Text className="mb-2 px-[14px] text-center text-xs text-[#9CA3AF]">
             Camera access needed for live coaching.
           </Text>
           <TouchableOpacity
-            style={styles.cameraPermissionButton}
+            className="rounded-full bg-[#FF3B3F] px-[14px] py-2"
             onPress={requestPermission}
           >
-            <Text style={styles.cameraPermissionText}>Enable Camera</Text>
+            <Text className="text-xs font-medium text-white">
+              Enable Camera
+            </Text>
           </TouchableOpacity>
         </View>
       );
@@ -655,22 +659,23 @@ export default function WorkoutSessionScreen() {
   };
 
   return (
-    <View style={styles.screen}>
+    <View className="flex-1 bg-[#020817]">
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerClassName="px-4 pb-6 pt-4"
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.headerRow}>
+        <View className="mb-3 flex-row items-center justify-between">
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>{workout.title}</Text>
+          <Text className="text-base font-semibold text-white">
+            {workout.title}
+          </Text>
 
-          {/* Keep your red camera button */}
           <TouchableOpacity
-            style={[styles.cameraButton, !wsConnected && { opacity: 0.5 }]}
+            className="h-8 w-8 items-center justify-center rounded-full bg-[#FF3B3F]"
+            style={!wsConnected ? { opacity: 0.5 } : undefined}
             disabled={!wsConnected}
             onPress={() => (streaming ? stopStreaming() : startStreaming())}
           >
@@ -682,47 +687,50 @@ export default function WorkoutSessionScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Camera area */}
         {renderCameraArea()}
 
-        {/* Progress row */}
-        <View style={styles.progressRow}>
-          <Text style={styles.progressText}>
+        <View className="mb-3 flex-row justify-between">
+          <Text className="text-[11px] text-[#9CA3AF]">
             Exercise {currentIndex + 1} of {totalExercises}
           </Text>
-          <Text style={styles.progressText}>{completion}% Complete</Text>
+          <Text className="text-[11px] text-[#9CA3AF]">
+            {completion}% Complete
+          </Text>
         </View>
 
-        {/* Exercise card */}
         <View style={styles.exerciseCard}>
-          {/* Title + remaining */}
-          <View style={styles.exerciseHeaderRow}>
+          <View className="mb-[14px] flex-row items-start justify-between">
             <View>
-              <Text style={styles.exerciseName}>{currentExercise.name}</Text>
-              <Text style={styles.exerciseSubText}>
-                {doneReps}/{totalReps ?? currentExercise.reps} reps
+              <Text className="text-base font-semibold text-white">
+                {currentExercise!.name}
+              </Text>
+              <Text className="mt-0.5 text-[11px] text-[#9CA3AF]">
+                {doneReps}/{totalReps ?? currentExercise!.reps} reps
               </Text>
             </View>
-            <View style={styles.remainingBlock}>
-              <Text style={styles.remainingLabel}>Remaining</Text>
-              <Text style={styles.remainingValue}>{remainingReps ?? "-"}</Text>
+            <View className="items-end">
+              <Text className="text-[10px] text-[#9CA3AF]">Remaining</Text>
+              <Text className="mt-0.5 text-[18px] font-semibold text-white">
+                {remainingReps ?? "-"}
+              </Text>
             </View>
           </View>
 
-          {/* Form Tip card */}
-          <View style={styles.formTipCard}>
-            <View style={styles.formTipHeaderRow}>
+          <View className="mb-[14px] rounded-[14px] bg-[#0B1220] p-[10px]">
+            <View className="mb-1 flex-row items-center">
               <Ionicons
                 name="bulb-outline"
                 size={14}
                 color="#FBBF24"
                 style={{ marginRight: 4 }}
               />
-              <Text style={styles.formTipLabel}>Form Tip:</Text>
+              <Text className="text-[10px] font-medium text-[#9CA3AF]">
+                Form Tip:
+              </Text>
             </View>
-            <Text style={styles.formTipText}>
+            <Text className="text-[11px] leading-4 text-[#E5E7EB]">
               {cues[0] ||
-                currentExercise.tips[0] ||
+                currentExercise!.tips[0] ||
                 "Maintain proper form throughout."}
             </Text>
           </View>
@@ -730,31 +738,37 @@ export default function WorkoutSessionScreen() {
           {/* Motivational button (kept) */}
           <TouchableOpacity
             activeOpacity={0.9}
-            style={[styles.actionButton, styles.keepGoingButton]}
+            className="mb-2 items-center rounded-[14px] bg-[#FF3B3F] py-3"
             onPress={() => {}}
           >
-            <Text style={styles.actionButtonText}>
-              🔥 Just 10 more! You got this!
+            <Text className="text-[13px] font-semibold text-white">
+              Just 10 more! You got this!
             </Text>
           </TouchableOpacity>
 
           {/* Pause button (kept) */}
           <TouchableOpacity
             activeOpacity={0.9}
-            style={[styles.actionButton, styles.pauseButton]}
+            className="items-center rounded-[14px] bg-[#FF6B3F] py-3"
             onPress={() => {}}
           >
-            <Text style={styles.actionButtonText}>⏸️ Pause Workout</Text>
+            <Text className="text-[13px] font-semibold text-white">
+              Pause Workout
+            </Text>
           </TouchableOpacity>
         </View>
 
         {/* Coming Up Next (kept) */}
-        <View style={styles.nextSection}>
-          <Text style={styles.nextLabel}>Coming Up Next:</Text>
+        <View className="mt-1 items-center">
+          <Text className="mb-0.5 text-[10px] text-[#6B7280]">
+            Coming Up Next:
+          </Text>
           {nextExercise ? (
-            <Text style={styles.nextText}>{nextExercise.name} - 10 reps</Text>
+            <Text className="text-xs text-white">
+              {nextExercise.name} - 10 reps
+            </Text>
           ) : (
-            <Text style={styles.nextText}>Finish Strong 💪</Text>
+            <Text className="text-xs text-white">Finish Strong</Text>
           )}
         </View>
       </ScrollView>
@@ -1049,16 +1063,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
 
-  progressRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  progressText: {
-    color: "#9CA3AF",
-    fontSize: 11,
-  },
-
   cameraPlaceholder: {
     justifyContent: "center",
     alignItems: "center",
@@ -1070,18 +1074,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingHorizontal: 14,
   },
-  cameraPermissionButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: "#FF3B3F",
-  },
-  cameraPermissionText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "500",
-  },
-
   exerciseCard: {
     backgroundColor: "#050B16",
     borderRadius: 22,
@@ -1093,90 +1085,5 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 5,
   },
-  exerciseHeaderRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 14,
-  },
-  exerciseName: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  exerciseSubText: {
-    color: "#9CA3AF",
-    fontSize: 11,
-    marginTop: 2,
-  },
-  remainingBlock: {
-    alignItems: "flex-end",
-  },
-  remainingLabel: {
-    color: "#9CA3AF",
-    fontSize: 10,
-  },
-  remainingValue: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "600",
-    marginTop: 2,
-  },
-  formTipCard: {
-    backgroundColor: "#0B1220",
-    borderRadius: 14,
-    padding: 10,
-    marginBottom: 14,
-  },
-  formTipHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  formTipLabel: {
-    color: "#9CA3AF",
-    fontSize: 10,
-    fontWeight: "500",
-  },
-  formTipText: {
-    color: "#E5E7EB",
-    fontSize: 11,
-    lineHeight: 16,
-  },
-  actionButton: {
-    borderRadius: 14,
-    paddingVertical: 12,
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  keepGoingButton: {
-    backgroundColor: "#FF3B3F",
-  },
-  pauseButton: {
-    backgroundColor: "#FF6B3F",
-  },
-  actionButtonText: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  nextSection: {
-    alignItems: "center",
-    marginTop: 4,
-  },
-  nextLabel: {
-    color: "#6B7280",
-    fontSize: 10,
-    marginBottom: 2,
-  },
-  nextText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-  },
-  errorText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    textAlign: "center",
-    marginTop: 40,
-  },
 });
+
