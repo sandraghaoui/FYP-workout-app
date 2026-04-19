@@ -24,6 +24,14 @@ export default function HomeScreen() {
       >
         {/* HERO */}
         <View style={styles.heroWrapper}>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={styles.tailwindTestButton}
+            onPress={() => router.push("./tailwind-test")}
+          >
+            <Text style={styles.tailwindTestButtonText}>Open Tailwind Test Page</Text>
+          </TouchableOpacity>
+
           <ImageBackground
             source={require("../../assets/images/image3.png")}
             style={styles.heroImage}
@@ -185,6 +193,21 @@ const styles = StyleSheet.create({
   /* HERO */
   heroWrapper: {
     marginBottom: 24,
+  },
+  tailwindTestButton: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 16,
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    backgroundColor: "#22D3EE",
+  },
+  tailwindTestButtonText: {
+    color: "#082F49",
+    fontSize: 15,
+    fontWeight: "800",
+    textAlign: "center",
   },
   heroImage: {
     width: "100%",
