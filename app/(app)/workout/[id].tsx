@@ -46,10 +46,10 @@ export default function WorkoutExerciseScreen() {
       >
         <View className="mb-4 flex-row items-center justify-between">
           <View>
-            <Text className="text-[10px] text-[#9CA3AF]">
+            <Text className="text-xs text-[#9CA3AF]">
               Exercise 1 of {totalExercises}
             </Text>
-            <Text className="mt-0.5 text-[18px] font-semibold text-white">
+            <Text className="mt-1 text-[22px] font-semibold text-white">
               {exercise.name}
             </Text>
           </View>
@@ -93,7 +93,7 @@ export default function WorkoutExerciseScreen() {
                 backgroundColor: "#FF6900",
               }}
             >
-              <Text className="text-[13px] font-semibold text-white">
+              <Text className="text-sm font-semibold text-white">
                 {exercise.reps}
               </Text>
             </View>
@@ -101,26 +101,26 @@ export default function WorkoutExerciseScreen() {
         </View>
 
         <View className="mb-[18px]">
-          <Text className="mb-1.5 text-sm font-semibold text-white">
+          <Text className="mb-2 text-[17px] font-semibold text-white">
             How to perform
           </Text>
-          <Text className="text-xs leading-[18px] text-[#D1D5DB]">
+          <Text className="text-[15px] leading-6 text-[#D1D5DB]">
             {exercise.howTo}
           </Text>
         </View>
 
         <View className="mb-[18px]">
-          <Text className="mb-1.5 text-sm font-semibold text-white">
+          <Text className="mb-2 text-[17px] font-semibold text-white">
             Form Tips
           </Text>
           {exercise.tips.map((tip: string, index: number) => (
-            <View key={index} className="mb-[10px] flex-row items-start">
-              <View className="mr-[10px] mt-px h-[22px] w-[22px] items-center justify-center rounded-full bg-[#FF6900]">
-                <Text className="text-[11px] font-semibold text-white">
+            <View key={index} className="mb-3 flex-row items-start">
+              <View className="mr-3 mt-0.5 h-6 w-6 items-center justify-center rounded-full bg-[#FF6900]">
+                <Text className="text-xs font-semibold text-white">
                   {index + 1}
                 </Text>
               </View>
-              <Text className="flex-1 text-xs leading-[18px] text-[#D1D5DB]">
+              <Text className="flex-1 text-[15px] leading-6 text-[#D1D5DB]">
                 {tip}
               </Text>
             </View>
@@ -148,14 +148,19 @@ export default function WorkoutExerciseScreen() {
             })
           }
         >
-          <Ionicons name="play" size={14} color="#FFFFFF" style={{ marginRight: 8 }} />
-          <Text className="text-sm font-semibold text-white">
+          <Ionicons
+            name="play"
+            size={16}
+            color="#FFFFFF"
+            style={{ marginRight: 8 }}
+          />
+          <Text className="text-[15px] font-semibold text-white">
             Got it! Start Exercise
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => router.back()}>
-          <Text className="text-center text-xs text-[#9CA3AF]">Skip Demo</Text>
+          <Text className="text-center text-sm text-[#9CA3AF]">Skip Demo</Text>
         </TouchableOpacity>
       </View>
     </View>
