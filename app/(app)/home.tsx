@@ -1,15 +1,15 @@
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import React from "react";
 import {
-  View,
-  Text,
   ImageBackground,
   ScrollView,
+  Text,
   TouchableOpacity,
+  View,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import { workouts, Workout } from "../../constants/workouts";
+import { Workout, workouts } from "../../constants/workouts";
 
 const CARD_HEIGHT = 200;
 
@@ -22,16 +22,6 @@ export default function HomeScreen() {
         bounces={false}
       >
         <View className="mb-6">
-          <TouchableOpacity
-            activeOpacity={0.9}
-            className="mx-4 mb-4 mt-4 rounded-[18px] bg-[#22D3EE] px-[18px] py-[14px]"
-            onPress={() => router.push("./tailwind-test")}
-          >
-            <Text className="text-center text-[15px] font-extrabold text-[#082F49]">
-              Open Tailwind Test Page
-            </Text>
-          </TouchableOpacity>
-
           <ImageBackground
             source={require("../../assets/images/image3.png")}
             className="h-[260px] w-full"
@@ -158,7 +148,11 @@ export default function HomeScreen() {
 
                     <View className="h-10 w-10 items-center justify-center rounded-full bg-[rgba(255,255,255,0.12)]">
                       <Text
-                        style={{ color: "#FFFFFF", fontSize: 22, marginTop: -1 }}
+                        style={{
+                          color: "#FFFFFF",
+                          fontSize: 22,
+                          marginTop: -1,
+                        }}
                       >
                         ›
                       </Text>
