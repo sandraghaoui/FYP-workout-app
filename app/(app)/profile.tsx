@@ -18,7 +18,6 @@ import {
   ActivityIndicator,
   Modal,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -79,7 +78,16 @@ function splitFullName(fullName: string) {
   };
 }
 
-function getExampleHint(field: "firstName" | "lastName" | "goal" | "age" | "height" | "weight" | "weeklyTarget") {
+function getExampleHint(
+  field:
+    | "firstName"
+    | "lastName"
+    | "goal"
+    | "age"
+    | "height"
+    | "weight"
+    | "weeklyTarget",
+) {
   switch (field) {
     case "firstName":
       return "Ex: Bryan";
@@ -109,6 +117,7 @@ export default function ProfileScreen() {
   const [message, setMessage] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [logoutPromptVisible, setLogoutPromptVisible] = React.useState(false);
+
   const nameParts = React.useMemo(
     () => splitFullName(profile.full_name),
     [profile.full_name],
@@ -158,9 +167,7 @@ export default function ProfileScreen() {
   }, [loadProfile]);
 
   const handleSave = React.useCallback(async () => {
-    if (!user) {
-      return;
-    }
+    if (!user) return;
 
     setSaving(true);
     setError(null);
@@ -226,146 +233,194 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView
-      style={styles.screen}
-      contentContainerStyle={styles.content}
+      className="flex-1 bg-[#020817]"
+      contentContainerClassName="p-4 pb-9"
       showsVerticalScrollIndicator={false}
     >
-      <LinearGradient colors={gradients.hero} style={styles.heroCard}>
-        <View style={styles.heroBadge}>
-          <Ionicons name="sparkles-outline" size={14} color="#FFD9B8" />
-          <Text style={styles.heroBadgeText}>Profile hub</Text>
+      <LinearGradient
+        colors={gradients.hero}
+        style={{
+          borderRadius: 28,
+          padding: 20,
+          borderWidth: 1,
+          borderColor: "rgba(255,255,255,0.08)",
+          marginBottom: 16,
+        }}
+      >
+        <View className="mb-[14px] self-start rounded-full bg-[rgba(255,255,255,0.08)] px-3 py-1.5">
+          <View className="flex-row items-center">
+            <Ionicons name="sparkles-outline" size={14} color="#FFD9B8" />
+            <Text className="ml-[6px] text-[12px] font-bold uppercase tracking-[0.6px] text-[#FFD9B8]">
+              Profile hub
+            </Text>
+          </View>
         </View>
 
-        <Text style={styles.heroTitle}>
+        <Text className="mb-[10px] text-[28px] font-extrabold leading-[34px] text-[#F8FAFC]">
           Build a profile that powers your plan
         </Text>
-        <Text style={styles.heroSubtitle}>
-          Save your athlete details and reuse the same profile in the
-          workout calendar.
+
+        <Text className="text-[14px] leading-[21px] text-[#CBD5E1]">
+          Save your athlete details and reuse the same profile in the workout
+          calendar.
         </Text>
 
-        <View style={styles.connectionRow}>
+        <View className="mt-[18px]">
           <View
-            style={[
-              styles.connectionPill,
-              isSupabaseConfigured
-                ? styles.connectionLive
-                : styles.connectionOffline,
-            ]}
+            className="self-start rounded-full border px-3 py-2"
+            style={{
+              backgroundColor: isSupabaseConfigured
+                ? "rgba(34, 197, 94, 0.12)"
+                : "rgba(245, 158, 11, 0.12)",
+              borderColor: isSupabaseConfigured
+                ? "rgba(34, 197, 94, 0.25)"
+                : "rgba(245, 158, 11, 0.24)",
+            }}
           >
-            <View
-              style={[
-                styles.connectionDot,
-                {
+            <View className="flex-row items-center">
+              <View
+                className="h-2 w-2 rounded-full"
+                style={{
                   backgroundColor: isSupabaseConfigured
                     ? palette.success
                     : palette.warning,
-                },
-              ]}
-            />
-            <Text style={styles.connectionText}>
-              {isSupabaseConfigured
-                ? "Supabase connected"
-                : "Supabase setup needed"}
-            </Text>
+                }}
+              />
+              <Text className="ml-2 text-[13px] font-semibold text-[#F8FAFC]">
+                {isSupabaseConfigured
+                  ? "Supabase connected"
+                  : "Supabase setup needed"}
+              </Text>
+            </View>
           </View>
         </View>
       </LinearGradient>
 
       {!isSupabaseConfigured ? (
-        <View style={styles.noticeCard}>
-          <Text style={styles.noticeTitle}>Finish setup</Text>
-          <Text style={styles.noticeText}>{getSupabaseConfigError()}</Text>
-          <Text style={styles.noticeText}>
+        <View className="mb-4 rounded-[22px] border border-[rgba(245,158,11,0.24)] bg-[rgba(245,158,11,0.12)] p-4">
+          <Text className="mb-[6px] text-[16px] font-bold text-[#FDE68A]">
+            Finish setup
+          </Text>
+          <Text className="text-[13px] leading-5 text-[#CBD5E1]">
+            {getSupabaseConfigError()}
+          </Text>
+          <Text className="text-[13px] leading-5 text-[#CBD5E1]">
             Use `.env.example` and run the SQL in `supabase/schema.sql`.
           </Text>
         </View>
       ) : null}
 
-      <View style={styles.panel}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Account identity</Text>
-          <Text style={styles.sectionMeta}>Managed by Supabase Auth</Text>
+      <View className="mb-4 rounded-[24px] border border-[rgba(148,163,184,0.18)] bg-[rgba(15,23,42,0.84)] p-[18px]">
+        <View className="mb-[14px] flex-row items-center justify-between">
+          <Text className="text-[18px] font-bold text-[#F8FAFC]">
+            Account identity
+          </Text>
+          <Text className="text-[12px] text-[#94A3B8]">
+            Managed by Supabase Auth
+          </Text>
         </View>
 
-        <View style={styles.identityCard}>
-          <Text style={styles.identityLabel}>Full name</Text>
+        <View className="mb-3 rounded-[18px] border border-[rgba(148,163,184,0.18)] bg-[#0B1120] p-[14px]">
+          <Text className="mb-[6px] text-[12px] text-[#94A3B8]">Full name</Text>
           <Text
-            style={[
-              styles.identityValue,
-              !profile.full_name.trim() ? styles.identityValueMuted : null,
-            ]}
+            className={`text-[14px] font-bold ${
+              !profile.full_name.trim()
+                ? "italic text-[#94A3B8]"
+                : "text-[#F8FAFC]"
+            }`}
           >
             {profile.full_name.trim() || "Not added yet"}
           </Text>
         </View>
 
-        <View style={styles.identityCard}>
-          <Text style={styles.identityLabel}>Email</Text>
-          <Text style={styles.identityValue}>{user?.email ?? "No email"}</Text>
+        <View className="rounded-[18px] border border-[rgba(148,163,184,0.18)] bg-[#0B1120] p-[14px]">
+          <Text className="mb-[6px] text-[12px] text-[#94A3B8]">Email</Text>
+          <Text className="text-[14px] font-bold text-[#F8FAFC]">
+            {user?.email ?? "No email"}
+          </Text>
         </View>
       </View>
 
-      <View style={styles.statsRow}>
+      <View className="mb-4 flex-row flex-wrap gap-3">
         {statCards.map((card) => (
-          <View key={card.label} style={styles.statCard}>
+          <View
+            key={card.label}
+            className="min-w-[30%] flex-grow rounded-[22px] border border-[rgba(148,163,184,0.18)] bg-[rgba(17,28,51,0.94)] p-4"
+          >
             <Ionicons name={card.icon} size={18} color={palette.accent} />
-            <Text style={styles.statLabel}>{card.label}</Text>
-            <Text style={styles.statValue}>{card.value}</Text>
+            <Text className="mb-[6px] mt-3 text-[12px] text-[#94A3B8]">
+              {card.label}
+            </Text>
+            <Text className="text-[15px] font-bold text-[#F8FAFC]">
+              {card.value}
+            </Text>
           </View>
         ))}
       </View>
 
-      <View style={styles.panel}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Athlete details</Text>
+      <View className="mb-4 rounded-[24px] border border-[rgba(148,163,184,0.18)] bg-[rgba(15,23,42,0.84)] p-[18px]">
+        <View className="mb-[14px] flex-row items-center justify-between">
+          <Text className="text-[18px] font-bold text-[#F8FAFC]">
+            Athlete details
+          </Text>
           {loading ? <ActivityIndicator color={palette.accent} /> : null}
         </View>
 
-        <View style={styles.metricsRow}>
-          <View style={styles.metricCol}>
-            <Text style={styles.inputLabel}>First name</Text>
+        <View className="flex-row gap-3">
+          <View className="flex-1">
+            <Text className="mb-2 text-[13px] font-semibold text-[#CBD5E1]">
+              First name
+            </Text>
             <TextInput
               value={nameParts.firstName}
               onChangeText={(value) =>
                 setProfile((current) => ({
                   ...current,
-                  full_name: `${value.trim()} ${splitFullName(current.full_name).lastName}`.trim(),
+                  full_name:
+                    `${value.trim()} ${splitFullName(current.full_name).lastName}`.trim(),
                 }))
               }
               placeholder={getExampleHint("firstName")}
               placeholderTextColor={palette.textMuted}
-              style={styles.input}
+              className="mb-[14px] rounded-[16px] border border-[rgba(148,163,184,0.18)] bg-[#0B1120] px-[14px] py-[13px] text-[15px] text-[#F8FAFC]"
             />
           </View>
 
-          <View style={styles.metricCol}>
-            <Text style={styles.inputLabel}>Last name</Text>
+          <View className="flex-1">
+            <Text className="mb-2 text-[13px] font-semibold text-[#CBD5E1]">
+              Last name
+            </Text>
             <TextInput
               value={nameParts.lastName}
               onChangeText={(value) =>
                 setProfile((current) => ({
                   ...current,
-                  full_name: `${splitFullName(current.full_name).firstName} ${value.trim()}`.trim(),
+                  full_name:
+                    `${splitFullName(current.full_name).firstName} ${value.trim()}`.trim(),
                 }))
               }
               placeholder={getExampleHint("lastName")}
               placeholderTextColor={palette.textMuted}
-              style={styles.input}
+              className="mb-[14px] rounded-[16px] border border-[rgba(148,163,184,0.18)] bg-[#0B1120] px-[14px] py-[13px] text-[15px] text-[#F8FAFC]"
             />
           </View>
         </View>
 
-        <Text style={styles.inputLabel}>Email</Text>
+        <Text className="mb-2 text-[13px] font-semibold text-[#CBD5E1]">
+          Email
+        </Text>
         <TextInput
           value={user?.email ?? profile.email ?? ""}
           editable={false}
           placeholder="name@example.com"
           placeholderTextColor={palette.textMuted}
-          style={[styles.input, styles.readonlyInput]}
+          className="mb-[14px] rounded-[16px] border border-[rgba(148,163,184,0.18)] bg-[#0B1120] px-[14px] py-[13px] text-[15px] text-[#F8FAFC]"
+          style={{ opacity: 0.78 }}
         />
 
-        <Text style={styles.inputLabel}>Fitness goal</Text>
+        <Text className="mb-2 text-[13px] font-semibold text-[#CBD5E1]">
+          Fitness goal
+        </Text>
         <TextInput
           value={profile.fitness_goal ?? ""}
           onChangeText={(value) =>
@@ -373,21 +428,26 @@ export default function ProfileScreen() {
           }
           placeholder={getExampleHint("goal")}
           placeholderTextColor={palette.textMuted}
-          style={[styles.input, styles.multilineInput]}
           multiline
+          className="mb-[14px] min-h-[92px] rounded-[16px] border border-[rgba(148,163,184,0.18)] bg-[#0B1120] px-[14px] py-[13px] text-[15px] text-[#F8FAFC]"
+          style={{ textAlignVertical: "top" }}
         />
 
-        <Text style={styles.inputLabel}>Training level</Text>
-        <View style={styles.levelRow}>
+        <Text className="mb-2 text-[13px] font-semibold text-[#CBD5E1]">
+          Training level
+        </Text>
+        <View className="mb-[14px] flex-row gap-2">
           {trainingLevels.map((level) => {
             const active = profile.training_level === level;
+
             return (
               <TouchableOpacity
                 key={level}
-                style={[
-                  styles.levelChip,
-                  active ? styles.levelChipActive : null,
-                ]}
+                className={`flex-1 items-center rounded-[16px] border py-3 ${
+                  active
+                    ? "border-[rgba(255,105,0,0.4)] bg-[rgba(255,105,0,0.16)]"
+                    : "border-[rgba(148,163,184,0.18)] bg-[#0B1120]"
+                }`}
                 onPress={() =>
                   setProfile((current) => ({
                     ...current,
@@ -396,10 +456,9 @@ export default function ProfileScreen() {
                 }
               >
                 <Text
-                  style={[
-                    styles.levelChipText,
-                    active ? styles.levelChipTextActive : null,
-                  ]}
+                  className={`text-[13px] font-semibold ${
+                    active ? "text-[#F8FAFC]" : "text-[#CBD5E1]"
+                  }`}
                 >
                   {level}
                 </Text>
@@ -408,9 +467,11 @@ export default function ProfileScreen() {
           })}
         </View>
 
-        <View style={styles.metricsRow}>
-          <View style={styles.metricCol}>
-            <Text style={styles.inputLabel}>Age</Text>
+        <View className="flex-row gap-3">
+          <View className="flex-1">
+            <Text className="mb-2 text-[13px] font-semibold text-[#CBD5E1]">
+              Age
+            </Text>
             <TextInput
               value={profile.age?.toString() ?? ""}
               onChangeText={(value) =>
@@ -422,12 +483,14 @@ export default function ProfileScreen() {
               placeholder={getExampleHint("age")}
               placeholderTextColor={palette.textMuted}
               keyboardType="number-pad"
-              style={styles.input}
+              className="mb-[14px] rounded-[16px] border border-[rgba(148,163,184,0.18)] bg-[#0B1120] px-[14px] py-[13px] text-[15px] text-[#F8FAFC]"
             />
           </View>
 
-          <View style={styles.metricCol}>
-            <Text style={styles.inputLabel}>Height (cm)</Text>
+          <View className="flex-1">
+            <Text className="mb-2 text-[13px] font-semibold text-[#CBD5E1]">
+              Height (cm)
+            </Text>
             <TextInput
               value={profile.height_cm?.toString() ?? ""}
               onChangeText={(value) =>
@@ -439,14 +502,16 @@ export default function ProfileScreen() {
               placeholder={getExampleHint("height")}
               placeholderTextColor={palette.textMuted}
               keyboardType="number-pad"
-              style={styles.input}
+              className="mb-[14px] rounded-[16px] border border-[rgba(148,163,184,0.18)] bg-[#0B1120] px-[14px] py-[13px] text-[15px] text-[#F8FAFC]"
             />
           </View>
         </View>
 
-        <View style={styles.metricsRow}>
-          <View style={styles.metricCol}>
-            <Text style={styles.inputLabel}>Weight (kg)</Text>
+        <View className="flex-row gap-3">
+          <View className="flex-1">
+            <Text className="mb-2 text-[13px] font-semibold text-[#CBD5E1]">
+              Weight (kg)
+            </Text>
             <TextInput
               value={profile.weight_kg?.toString() ?? ""}
               onChangeText={(value) =>
@@ -458,12 +523,14 @@ export default function ProfileScreen() {
               placeholder={getExampleHint("weight")}
               placeholderTextColor={palette.textMuted}
               keyboardType="decimal-pad"
-              style={styles.input}
+              className="mb-[14px] rounded-[16px] border border-[rgba(148,163,184,0.18)] bg-[#0B1120] px-[14px] py-[13px] text-[15px] text-[#F8FAFC]"
             />
           </View>
 
-          <View style={styles.metricCol}>
-            <Text style={styles.inputLabel}>Weekly target</Text>
+          <View className="flex-1">
+            <Text className="mb-2 text-[13px] font-semibold text-[#CBD5E1]">
+              Weekly target
+            </Text>
             <TextInput
               value={profile.weekly_target?.toString() ?? ""}
               onChangeText={(value) =>
@@ -475,20 +542,23 @@ export default function ProfileScreen() {
               placeholder={getExampleHint("weeklyTarget")}
               placeholderTextColor={palette.textMuted}
               keyboardType="number-pad"
-              style={styles.input}
+              className="mb-[14px] rounded-[16px] border border-[rgba(148,163,184,0.18)] bg-[#0B1120] px-[14px] py-[13px] text-[15px] text-[#F8FAFC]"
             />
           </View>
         </View>
       </View>
 
-      {message ? <Text style={styles.successText}>{message}</Text> : null}
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {message ? (
+        <Text className="mb-2 mx-1 text-[13px] text-[#86EFAC]">{message}</Text>
+      ) : null}
+
+      {error ? (
+        <Text className="mb-2 mx-1 text-[13px] text-[#FDBA74]">{error}</Text>
+      ) : null}
 
       <TouchableOpacity
-        style={[
-          styles.primaryButton,
-          saving ? styles.primaryButtonDisabled : null,
-        ]}
+        className="flex-row items-center justify-center rounded-2xl bg-[#FF6900] py-4"
+        style={saving ? { opacity: 0.6 } : undefined}
         onPress={handleSave}
         disabled={saving || !isSupabaseConfigured}
       >
@@ -501,7 +571,7 @@ export default function ProfileScreen() {
               size={18}
               color={palette.textPrimary}
             />
-            <Text style={styles.primaryButtonText}>
+            <Text className="ml-[10px] text-[15px] font-extrabold text-[#F8FAFC]">
               Save profile to Supabase
             </Text>
           </>
@@ -509,10 +579,8 @@ export default function ProfileScreen() {
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[
-          styles.secondaryActionButton,
-          signingOut ? styles.primaryButtonDisabled : null,
-        ]}
+        className="mt-3 flex-row items-center justify-center rounded-2xl border border-[rgba(56,189,248,0.24)] bg-[rgba(56,189,248,0.12)] py-4"
+        style={signingOut ? { opacity: 0.6 } : undefined}
         onPress={() => setLogoutPromptVisible(true)}
         disabled={signingOut}
       >
@@ -525,7 +593,9 @@ export default function ProfileScreen() {
               size={18}
               color={palette.textPrimary}
             />
-            <Text style={styles.secondaryActionText}>Log out</Text>
+            <Text className="ml-[10px] text-[15px] font-extrabold text-white">
+              Log out
+            </Text>
           </>
         )}
       </TouchableOpacity>
@@ -538,38 +608,47 @@ export default function ProfileScreen() {
           if (!signingOut) setLogoutPromptVisible(false);
         }}
       >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalIconWrap}>
+        <View className="flex-1 justify-center bg-[rgba(2,8,23,0.68)] p-5">
+          <View className="rounded-[24px] border border-[rgba(148,163,184,0.18)] bg-[#111C33] p-[22px]">
+            <View className="mb-4 h-[46px] w-[46px] items-center justify-center rounded-full bg-[rgba(56,189,248,0.14)]">
               <Ionicons name="log-out-outline" size={22} color="#93C5FD" />
             </View>
-            <Text style={styles.modalTitle}>Log out now?</Text>
-            <Text style={styles.modalText}>
+
+            <Text className="mb-2 text-[20px] font-extrabold text-[#F8FAFC]">
+              Log out now?
+            </Text>
+
+            <Text className="text-[14px] leading-[21px] text-[#CBD5E1]">
               You’ll return to the login screen and need to sign back in to
               manage your profile and workout plans.
             </Text>
 
-            <View style={styles.modalActions}>
+            <View className="mt-5 flex-row gap-[10px]">
               <TouchableOpacity
-                style={styles.modalSecondaryButton}
+                className="flex-1 items-center rounded-[16px] border border-[rgba(148,163,184,0.18)] bg-[#0B1120] py-[14px]"
                 onPress={() => setLogoutPromptVisible(false)}
                 disabled={signingOut}
               >
-                <Text style={styles.modalSecondaryText}>Stay signed in</Text>
+                <Text className="text-[14px] font-bold text-[#F8FAFC]">
+                  Stay signed in
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[
-                  styles.modalPrimaryButton,
-                  signingOut ? styles.primaryButtonDisabled : null,
-                ]}
+                className="flex-1 items-center justify-center rounded-[16px] py-[14px]"
+                style={{
+                  backgroundColor: palette.sky,
+                  opacity: signingOut ? 0.6 : 1,
+                }}
                 onPress={handleSignOut}
                 disabled={signingOut}
               >
                 {signingOut ? (
                   <ActivityIndicator color={palette.textPrimary} />
                 ) : (
-                  <Text style={styles.modalPrimaryText}>Log out</Text>
+                  <Text className="text-[14px] font-extrabold text-[#F8FAFC]">
+                    Log out
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -579,340 +658,3 @@ export default function ProfileScreen() {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: palette.background,
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 36,
-  },
-  heroCard: {
-    borderRadius: 28,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
-    marginBottom: 16,
-  },
-  heroBadge: {
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    marginBottom: 14,
-  },
-  heroBadgeText: {
-    color: "#FFD9B8",
-    fontSize: 12,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-  heroTitle: {
-    color: palette.textPrimary,
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: "800",
-    marginBottom: 10,
-  },
-  heroSubtitle: {
-    color: palette.textSecondary,
-    fontSize: 14,
-    lineHeight: 21,
-  },
-  connectionRow: {
-    marginTop: 18,
-  },
-  connectionPill: {
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-  },
-  connectionLive: {
-    backgroundColor: "rgba(34, 197, 94, 0.12)",
-    borderColor: "rgba(34, 197, 94, 0.25)",
-  },
-  connectionOffline: {
-    backgroundColor: "rgba(245, 158, 11, 0.12)",
-    borderColor: "rgba(245, 158, 11, 0.24)",
-  },
-  connectionDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 999,
-    marginRight: 8,
-  },
-  connectionText: {
-    color: palette.textPrimary,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  noticeCard: {
-    backgroundColor: "rgba(245, 158, 11, 0.12)",
-    borderColor: "rgba(245, 158, 11, 0.24)",
-    borderWidth: 1,
-    borderRadius: 22,
-    padding: 16,
-    marginBottom: 16,
-  },
-  noticeTitle: {
-    color: "#FDE68A",
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 6,
-  },
-  noticeText: {
-    color: palette.textSecondary,
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  panel: {
-    backgroundColor: palette.surface,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: palette.cardBorder,
-    padding: 18,
-    marginBottom: 16,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 14,
-  },
-  sectionTitle: {
-    color: palette.textPrimary,
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  sectionMeta: {
-    color: palette.textMuted,
-    fontSize: 12,
-  },
-  identityCard: {
-    backgroundColor: palette.backgroundElevated,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: palette.cardBorder,
-    padding: 14,
-    marginBottom: 12,
-  },
-  identityLabel: {
-    color: palette.textMuted,
-    fontSize: 12,
-    marginBottom: 6,
-  },
-  identityValue: {
-    color: palette.textPrimary,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  identityValueMuted: {
-    color: palette.textMuted,
-    fontStyle: "italic",
-  },
-  inputLabel: {
-    color: palette.textSecondary,
-    fontSize: 13,
-    fontWeight: "600",
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: palette.backgroundElevated,
-    color: palette.textPrimary,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: palette.cardBorder,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-    fontSize: 15,
-    marginBottom: 14,
-  },
-  multilineInput: {
-    minHeight: 92,
-    textAlignVertical: "top",
-  },
-  readonlyInput: {
-    opacity: 0.78,
-  },
-  statsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-    marginBottom: 16,
-  },
-  statCard: {
-    flexGrow: 1,
-    minWidth: "30%",
-    backgroundColor: "rgba(17, 28, 51, 0.94)",
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: palette.cardBorder,
-    padding: 16,
-  },
-  statLabel: {
-    color: palette.textMuted,
-    fontSize: 12,
-    marginTop: 12,
-    marginBottom: 6,
-  },
-  statValue: {
-    color: palette.textPrimary,
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  levelRow: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 14,
-  },
-  levelChip: {
-    flex: 1,
-    borderRadius: 16,
-    backgroundColor: palette.backgroundElevated,
-    borderWidth: 1,
-    borderColor: palette.cardBorder,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  levelChipActive: {
-    backgroundColor: palette.accentSoft,
-    borderColor: "rgba(255, 105, 0, 0.4)",
-  },
-  levelChipText: {
-    color: palette.textSecondary,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  levelChipTextActive: {
-    color: palette.textPrimary,
-  },
-  metricsRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  metricCol: {
-    flex: 1,
-  },
-  successText: {
-    color: "#86EFAC",
-    fontSize: 13,
-    marginBottom: 8,
-    marginHorizontal: 4,
-  },
-  errorText: {
-    color: "#FDBA74",
-    fontSize: 13,
-    marginBottom: 8,
-    marginHorizontal: 4,
-  },
-  primaryButton: {
-    backgroundColor: palette.accent,
-    borderRadius: 18,
-    paddingVertical: 16,
-    justifyContent: "center",
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 10,
-  },
-  primaryButtonDisabled: {
-    opacity: 0.6,
-  },
-  primaryButtonText: {
-    color: palette.textPrimary,
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  secondaryActionButton: {
-    backgroundColor: "rgba(56, 189, 248, 0.12)",
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "rgba(56, 189, 248, 0.24)",
-    paddingVertical: 16,
-    justifyContent: "center",
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 12,
-  },
-  secondaryActionText: {
-    color: palette.textPrimary,
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(2, 8, 23, 0.68)",
-    justifyContent: "center",
-    padding: 20,
-  },
-  modalCard: {
-    backgroundColor: palette.surfaceStrong,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: palette.cardBorder,
-    padding: 22,
-  },
-  modalIconWrap: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: "rgba(56, 189, 248, 0.14)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-  },
-  modalTitle: {
-    color: palette.textPrimary,
-    fontSize: 20,
-    fontWeight: "800",
-    marginBottom: 8,
-  },
-  modalText: {
-    color: palette.textSecondary,
-    fontSize: 14,
-    lineHeight: 21,
-  },
-  modalActions: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 20,
-  },
-  modalSecondaryButton: {
-    flex: 1,
-    backgroundColor: palette.backgroundElevated,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: palette.cardBorder,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  modalSecondaryText: {
-    color: palette.textPrimary,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  modalPrimaryButton: {
-    flex: 1,
-    backgroundColor: palette.sky,
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalPrimaryText: {
-    color: palette.textPrimary,
-    fontSize: 14,
-    fontWeight: "800",
-  },
-});

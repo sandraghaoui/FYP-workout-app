@@ -1,13 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, usePathname } from "expo-router";
 import React from "react";
-import {
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  ViewStyle,
-} from "react-native";
+import { Text, TouchableOpacity, View, ViewStyle } from "react-native";
 import { useAuth } from "@/src/context/AuthContext";
 
 const TAB_HEIGHT = 66;
@@ -18,24 +12,34 @@ export default function BottomNav() {
   const navigatingRef = React.useRef(false);
 
   const goReplace = (to: string) => {
-    // Prevent rapid consecutive navigations while an animation is running
     if (navigatingRef.current) return;
     if ((pathname === "/" && to === "/") || pathname === to) return;
+
     navigatingRef.current = true;
-    // Use replace to avoid stacking routes when switching tabs
-    // cast to any because expo-router's strict route union types
-    // don't accept dynamic strings here
     router.replace(to as any);
-    // unlock after animation/window period
-    setTimeout(() => (navigatingRef.current = false), 550);
+    setTimeout(() => {
+      navigatingRef.current = false;
+    }, 550);
   };
-  // Hide bottom nav on workout pages and auth screens
-  if (!session || pathname.startsWith("/workout") || pathname === "/login" || pathname === "/signup") {
+
+  if (
+    !session ||
+    pathname.startsWith("/workout") ||
+    pathname === "/login" ||
+    pathname === "/signup"
+  ) {
     return null;
   }
 
   return (
-    <View style={styles.container}>
+    <View
+      className="flex-row items-center justify-around border-t bg-[#020817]"
+      style={{
+        height: TAB_HEIGHT,
+        borderTopWidth: 0.5,
+        borderTopColor: "rgba(255,255,255,0.06)",
+      }}
+    >
       <NavItem
         icon="home-outline"
         label="Home"
@@ -72,77 +76,57 @@ function NavItem({
   active?: boolean;
 }) {
   const activeWrapperStyle: ViewStyle = active
-    ? styles.activeWrapper
-    : ({} as ViewStyle);
+    ? {
+        backgroundColor: "rgba(255,105,0,0.95)",
+        shadowColor: "#FF6900",
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
+        elevation: 6,
+      }
+    : {};
+
   const pressingRef = React.useRef(false);
 
   const handlePress = () => {
-    if (active) return; // ignore presses on already-selected tab
-    if (pressingRef.current) return; // debounce rapid presses
+    if (active) return;
+    if (pressingRef.current) return;
+
     pressingRef.current = true;
     try {
       onPress();
     } finally {
-      setTimeout(() => (pressingRef.current = false), 600);
+      setTimeout(() => {
+        pressingRef.current = false;
+      }, 600);
     }
   };
 
   return (
     <TouchableOpacity
-      style={styles.item}
+      className="items-center justify-center"
       activeOpacity={0.8}
       onPress={handlePress}
       disabled={active}
     >
-      <View style={[styles.iconWrapper, activeWrapperStyle]}>
+      <View
+        className="h-11 w-11 items-center justify-center rounded-full"
+        style={activeWrapperStyle}
+      >
         <Ionicons
           name={icon as any}
           size={22}
           color={active ? "#FFF" : "#E5E7EB"}
         />
       </View>
-      <Text style={[styles.label, active ? styles.labelActive : null]}>
+
+      <Text
+        className={`mt-1 text-[11px] ${
+          active ? "text-white" : "text-[#9CA3AF]"
+        }`}
+      >
         {label}
       </Text>
     </TouchableOpacity>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    height: TAB_HEIGHT,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    borderTopWidth: 0.5,
-    borderTopColor: "rgba(255,255,255,0.06)",
-    backgroundColor: "#020817",
-  },
-  item: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  iconWrapper: {
-    width: 44,
-    height: 44,
-    borderRadius: 999,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  activeWrapper: {
-    backgroundColor: "rgba(255,105,0,0.95)",
-    shadowColor: "#FF6900",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  label: {
-    color: "#9CA3AF",
-    fontSize: 11,
-    marginTop: 4,
-  },
-  labelActive: {
-    color: "#FFFFFF",
-  },
-});

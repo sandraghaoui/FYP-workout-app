@@ -108,8 +108,8 @@ export default function WorkoutSessionScreen() {
   }
 
   const currentIndex = 0;
-  const currentExercise: Exercise = workout.exercises[currentIndex];
-  const totalExercises = workout.exercises.length;
+  const currentExercise: Exercise | undefined = workout?.exercises[currentIndex];
+  const totalExercises = workout?.exercises.length ?? 0;
 
   const backendMode = useMemo<BackendMode>(() => {
     const name = (currentExercise?.name || "").toLowerCase();
@@ -121,9 +121,9 @@ export default function WorkoutSessionScreen() {
   }, [currentExercise?.name]);
 
   const totalReps = useMemo(() => {
-    const match = currentExercise.reps.match(/\d+/);
+    const match = currentExercise?.reps?.match(/\d+/);
     return match ? Number(match[0]) : null;
-  }, [currentExercise.reps]);
+  }, [currentExercise?.reps]);
 
   const doneReps = repCount ?? 0;
   const remainingReps =
@@ -134,7 +134,7 @@ export default function WorkoutSessionScreen() {
       : 0;
 
   const nextExercise: Exercise | undefined =
-    workout.exercises[currentIndex + 1];
+    workout?.exercises[currentIndex + 1];
 
   const primaryFeedback = useMemo(() => {
     if (cues.length > 0) return cues[0];
@@ -611,7 +611,7 @@ export default function WorkoutSessionScreen() {
 
             <Text className="text-[11px] leading-4 text-gray-200">
               {cues[0] ||
-                currentExercise.tips[0] ||
+                currentExercise!.tips[0] ||
                 "Maintain proper form throughout."}
             </Text>
           </View>

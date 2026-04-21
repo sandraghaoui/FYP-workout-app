@@ -9,7 +9,6 @@ import {
   Modal,
   PanResponder,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -307,6 +306,7 @@ export default function CalendarScreen() {
   }, [handleDeletePlan, pendingDeletePlan]);
 
   const completedCount = plans.filter((item) => item.status === "done").length;
+
   const calendarAnimatedStyle = {
     opacity: monthTransition.interpolate({
       inputRange: [-26, 0, 26],
@@ -317,142 +317,176 @@ export default function CalendarScreen() {
 
   return (
     <ScrollView
-      style={styles.screen}
-      contentContainerStyle={styles.content}
+      className="flex-1 bg-[#020817]"
+      contentContainerClassName="p-4 pb-8"
       showsVerticalScrollIndicator={false}
       scrollEnabled={!isMonthGestureActive}
     >
-      <LinearGradient colors={gradients.hero} style={styles.heroCard}>
-        <View style={styles.heroHeader}>
+      <LinearGradient
+        colors={gradients.hero}
+        style={{
+          borderRadius: 28,
+          padding: 20,
+          borderWidth: 1,
+          borderColor: "rgba(255,255,255,0.08)",
+          marginBottom: 16,
+        }}
+      >
+        <View className="flex-row items-start justify-between">
           <View>
-            <Text style={styles.heroEyebrow}>Workout planner</Text>
-            <Text style={styles.heroTitle}>Train with structure, not guesswork</Text>
+            <Text className="mb-[10px] text-xs font-extrabold uppercase tracking-[0.8px] text-[#FDBA74]">
+              Workout planner
+            </Text>
+            <Text className="max-w-[260px] text-[28px] font-extrabold leading-[34px] text-[#F8FAFC]">
+              Train with structure, not guesswork
+            </Text>
           </View>
-          <View style={styles.heroBadge}>
+
+          <View className="h-[46px] w-[46px] items-center justify-center rounded-full bg-[rgba(255,255,255,0.08)]">
             <Ionicons name="calendar-outline" size={18} color={palette.textPrimary} />
           </View>
         </View>
 
-        <Text style={styles.heroSubtitle}>
+        <Text className="mt-[10px] text-sm leading-5 text-[#CBD5E1]">
           Pick a day, add workouts or tasks, and track what is already done.
         </Text>
 
-        <View style={styles.heroMetricsRow}>
+        <View className="mt-[18px] flex-row gap-[10px]">
           <MetricCard label="Selected day" value={selectedDate.toDateString()} featured />
           <MetricCard label="Completed" value={`${completedCount}/${plans.length}`} />
         </View>
       </LinearGradient>
 
       {!isSupabaseConfigured ? (
-        <View style={styles.warningCard}>
-          <Text style={styles.warningTitle}>Supabase setup needed</Text>
-          <Text style={styles.warningText}>
+        <View className="mb-4 rounded-[20px] border border-[rgba(245,158,11,0.24)] bg-[rgba(245,158,11,0.12)] p-4">
+          <Text className="mb-[6px] text-[16px] font-bold text-[#FDE68A]">
+            Supabase setup needed
+          </Text>
+          <Text className="text-[13px] leading-5 text-[#CBD5E1]">
             Add the Expo public env vars first, then this planner will persist
             workouts instead of staying empty.
           </Text>
         </View>
       ) : null}
 
-      <View style={styles.calendarShell}>
-        <View style={styles.monthHeader}>
+      <View className="mb-4 rounded-[24px] border border-[rgba(148,163,184,0.18)] bg-[rgba(15,23,42,0.84)] p-4">
+        <View className="mb-3 flex-row items-center justify-between">
           <TouchableOpacity
             onPress={() => changeMonth("previous")}
-            style={styles.monthButton}
+            className="h-9 w-9 items-center justify-center rounded-full bg-[#0B1120]"
           >
             <Ionicons name="chevron-back" size={18} color={palette.textPrimary} />
           </TouchableOpacity>
 
-          <Text style={styles.monthTitle}>
+          <Text className="text-[18px] font-bold text-[#F8FAFC]">
             {currentMonth.toLocaleString(undefined, { month: "long" })}{" "}
             {currentMonth.getFullYear()}
           </Text>
 
           <TouchableOpacity
             onPress={() => changeMonth("next")}
-            style={styles.monthButton}
+            className="h-9 w-9 items-center justify-center rounded-full bg-[#0B1120]"
           >
             <Ionicons name="chevron-forward" size={18} color={palette.textPrimary} />
           </TouchableOpacity>
         </View>
 
-        <View style={styles.weekdaysRow}>
+        <View className="mb-[10px] flex-row justify-between">
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((weekday) => (
-            <Text key={weekday} style={styles.weekday}>
+            <Text
+              key={weekday}
+              className="text-center text-[12px] font-semibold text-[#94A3B8]"
+              style={{ width: "14.28%" }}
+            >
               {weekday}
             </Text>
           ))}
         </View>
 
-        <View {...panResponder.panHandlers} style={styles.calendarGestureArea}>
+        <View {...panResponder.panHandlers} className="overflow-hidden">
           <Animated.View style={calendarAnimatedStyle}>
-            <View style={styles.grid}>
-            {monthDays.map((date, index) => {
-              const iso = date ? isoDateString(date) : null;
-              const isSelected = iso === selectedIso;
-              const isToday = iso === isoDateString(new Date());
-              const planCount = iso ? planSummary[iso] ?? 0 : 0;
+            <View className="flex-row flex-wrap">
+              {monthDays.map((date, index) => {
+                const iso = date ? isoDateString(date) : null;
+                const isSelected = iso === selectedIso;
+                const isToday = iso === isoDateString(new Date());
+                const planCount = iso ? planSummary[iso] ?? 0 : 0;
 
-              return (
-                <TouchableOpacity
-                  key={iso ?? `empty-${index}`}
-                  style={[
-                    styles.dayCell,
-                    isSelected ? styles.dayCellSelected : null,
-                  ]}
-                  onPress={() => date && setSelectedDate(date)}
-                  disabled={!date}
-                >
-                  <Text
-                    style={[
-                      styles.dayText,
-                      isToday ? styles.todayText : null,
-                      isSelected ? styles.dayTextSelected : null,
-                      !date ? styles.dayTextEmpty : null,
-                    ]}
+                return (
+                  <TouchableOpacity
+                    key={iso ?? `empty-${index}`}
+                    onPress={() => date && setSelectedDate(date)}
+                    disabled={!date}
+                    className={`mb-[6px] min-h-[64px] items-center justify-center overflow-hidden rounded-[16px] ${
+                      isSelected ? "bg-[rgba(255,105,0,0.16)]" : ""
+                    }`}
+                    style={{ width: "14.28%" }}
                   >
-                    {date ? date.getDate() : ""}
-                  </Text>
-                  {planCount > 0 ? (
-                    <View style={styles.planCountPill}>
-                      <Text style={styles.planCountText}>{planCount}</Text>
-                    </View>
-                  ) : null}
-                </TouchableOpacity>
-              );
-            })}
+                    <Text
+                      className={`text-[15px] font-semibold ${
+                        !date
+                          ? "text-transparent"
+                          : isSelected
+                            ? "text-[#F8FAFC]"
+                            : isToday
+                              ? "text-[#FFD580]"
+                              : "text-[#CBD5E1]"
+                      }`}
+                    >
+                      {date ? date.getDate() : ""}
+                    </Text>
+
+                    {planCount > 0 ? (
+                      <View className="mt-[6px] min-w-[18px] rounded-full bg-[#FF6900] px-[5px] py-[2px]">
+                        <Text className="text-center text-[10px] font-extrabold text-[#F8FAFC]">
+                          {planCount}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </Animated.View>
         </View>
       </View>
 
-      <View style={styles.panel}>
-        <View style={styles.panelHeader}>
+      <View className="mb-4 rounded-[24px] border border-[rgba(148,163,184,0.18)] bg-[rgba(15,23,42,0.84)] p-[18px]">
+        <View className="mb-[14px] flex-row items-center justify-between">
           <View>
-            <Text style={styles.panelTitle}>Plan for {selectedDate.toDateString()}</Text>
-            <Text style={styles.panelSubtitle}>
+            <Text className="mb-1 text-[18px] font-bold text-[#F8FAFC]">
+              Plan for {selectedDate.toDateString()}
+            </Text>
+            <Text className="max-w-[270px] text-[13px] leading-[19px] text-[#94A3B8]">
               Add workouts, recovery work, or simple training tasks.
             </Text>
           </View>
           {loadingPlans ? <ActivityIndicator color={palette.accent} /> : null}
         </View>
 
-        <Text style={styles.inputLabel}>Task or workout title</Text>
+        <Text className="mb-2 text-[13px] font-semibold text-[#CBD5E1]">
+          Task or workout title
+        </Text>
         <TextInput
           value={draftTitle}
           onChangeText={setDraftTitle}
           placeholder="Leg day, mobility flow, long walk..."
           placeholderTextColor={palette.textMuted}
-          style={styles.input}
+          className="mb-[14px] rounded-2xl border border-[rgba(148,163,184,0.18)] bg-[#0B1120] px-[14px] py-[13px] text-[15px] text-[#F8FAFC]"
         />
 
-        <Text style={styles.inputLabel}>Category</Text>
-        <View style={styles.dropdownWrap}>
+        <Text className="mb-2 text-[13px] font-semibold text-[#CBD5E1]">
+          Category
+        </Text>
+        <View className="mb-[14px]">
           <TouchableOpacity
-            style={styles.dropdownButton}
+            className="flex-row items-center justify-between rounded-2xl border border-[rgba(148,163,184,0.18)] bg-[#0B1120] px-[14px] py-[13px]"
             onPress={() => setCategoryMenuOpen((current) => !current)}
             activeOpacity={0.85}
           >
-            <Text style={styles.dropdownButtonText}>{draftCategory}</Text>
+            <Text className="text-[15px] font-semibold text-[#F8FAFC]">
+              {draftCategory}
+            </Text>
             <Ionicons
               name={categoryMenuOpen ? "chevron-up" : "chevron-down"}
               size={18}
@@ -461,35 +495,31 @@ export default function CalendarScreen() {
           </TouchableOpacity>
 
           {categoryMenuOpen ? (
-            <View style={styles.dropdownMenu}>
-              {WORKOUT_CATEGORIES.map((category) => {
+            <View className="mt-2 overflow-hidden rounded-[18px] border border-[rgba(148,163,184,0.18)] bg-[#111C33]">
+              {WORKOUT_CATEGORIES.map((category, index) => {
                 const active = draftCategory === category;
+                const isLast = index === WORKOUT_CATEGORIES.length - 1;
+
                 return (
                   <TouchableOpacity
                     key={category}
-                    style={[
-                      styles.dropdownItem,
-                      active ? styles.dropdownItemActive : null,
-                    ]}
+                    className={`flex-row items-center justify-between px-[14px] py-[13px] ${
+                      active ? "bg-[rgba(255,105,0,0.16)]" : ""
+                    } ${!isLast ? "border-b border-[rgba(148,163,184,0.08)]" : ""}`}
                     onPress={() => {
                       setDraftCategory(category);
                       setCategoryMenuOpen(false);
                     }}
                   >
                     <Text
-                      style={[
-                        styles.dropdownItemText,
-                        active ? styles.dropdownItemTextActive : null,
-                      ]}
+                      className={`text-[14px] font-semibold ${
+                        active ? "text-[#F8FAFC]" : "text-[#CBD5E1]"
+                      }`}
                     >
                       {category}
                     </Text>
                     {active ? (
-                      <Ionicons
-                        name="checkmark"
-                        size={16}
-                        color={palette.accent}
-                      />
+                      <Ionicons name="checkmark" size={16} color={palette.accent} />
                     ) : null}
                   </TouchableOpacity>
                 );
@@ -498,18 +528,20 @@ export default function CalendarScreen() {
           ) : null}
         </View>
 
-        <Text style={styles.inputLabel}>Notes</Text>
+        <Text className="mb-2 text-[13px] font-semibold text-[#CBD5E1]">Notes</Text>
         <TextInput
           value={draftNotes}
           onChangeText={setDraftNotes}
           placeholder="Focus points, intensity, sets, recovery reminders..."
           placeholderTextColor={palette.textMuted}
-          style={[styles.input, styles.notesInput]}
+          className="mb-[14px] min-h-[88px] rounded-2xl border border-[rgba(148,163,184,0.18)] bg-[#0B1120] px-[14px] py-[13px] text-[15px] text-[#F8FAFC]"
           multiline
+          style={{ textAlignVertical: "top" }}
         />
 
         <TouchableOpacity
-          style={[styles.primaryButton, savingPlan ? styles.primaryButtonDisabled : null]}
+          className="mt-1 flex-row items-center justify-center rounded-[18px] bg-[#FF6900] py-4"
+          style={savingPlan ? { opacity: 0.6 } : undefined}
           onPress={handleCreatePlan}
           disabled={savingPlan || !isSupabaseConfigured || !user}
         >
@@ -518,75 +550,96 @@ export default function CalendarScreen() {
           ) : (
             <>
               <Ionicons name="add-circle-outline" size={18} color={palette.textPrimary} />
-              <Text style={styles.primaryButtonText}>Add to selected day</Text>
+              <Text className="ml-[10px] text-[15px] font-extrabold text-[#F8FAFC]">
+                Add to selected day
+              </Text>
             </>
           )}
         </TouchableOpacity>
       </View>
 
-      <View style={styles.panel}>
-        <View style={styles.panelHeader}>
+      <View className="mb-4 rounded-[24px] border border-[rgba(148,163,184,0.18)] bg-[rgba(15,23,42,0.84)] p-[18px]">
+        <View className="mb-[14px] flex-row items-center justify-between">
           <View>
-            <Text style={styles.panelTitle}>Scheduled items</Text>
-            <Text style={styles.panelSubtitle}>
+            <Text className="mb-1 text-[18px] font-bold text-[#F8FAFC]">
+              Scheduled items
+            </Text>
+            <Text className="max-w-[270px] text-[13px] leading-[19px] text-[#94A3B8]">
               Tap complete when you finish, or remove a plan you no longer need.
             </Text>
           </View>
         </View>
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {error ? (
+          <Text className="mb-3 text-[13px] text-[#FDBA74]">{error}</Text>
+        ) : null}
 
         {plans.length === 0 ? (
-          <View style={styles.emptyState}>
+          <View className="items-center rounded-[20px] border border-[rgba(148,163,184,0.18)] bg-[rgba(2,8,23,0.5)] p-[18px]">
             <Ionicons name="moon-outline" size={28} color={palette.textMuted} />
-            <Text style={styles.emptyTitle}>Nothing scheduled yet</Text>
-            <Text style={styles.emptyText}>
+            <Text className="mb-[6px] mt-[10px] text-[16px] font-bold text-[#F8FAFC]">
+              Nothing scheduled yet
+            </Text>
+            <Text className="text-center text-[13px] leading-5 text-[#94A3B8]">
               This day is clear. Add a workout or recovery task to start building
               the plan.
             </Text>
           </View>
         ) : (
           plans.map((plan) => (
-            <View key={plan.id} style={styles.planCard}>
-              <View style={styles.planTopRow}>
-                <View style={styles.planMeta}>
-                  <Text style={styles.planCategory}>{plan.category || "Workout"}</Text>
+            <View
+              key={plan.id}
+              className="mb-3 rounded-[20px] border border-[rgba(148,163,184,0.18)] bg-[rgba(17,28,51,0.94)] p-4"
+            >
+              <View className="mb-[10px] flex-row items-center justify-between">
+                <View className="flex-row items-center gap-2">
+                  <Text className="text-[12px] font-bold uppercase tracking-[0.6px] text-[#FDBA74]">
+                    {plan.category || "Workout"}
+                  </Text>
                   <Text
-                    style={[
-                      styles.planStatus,
-                      plan.status === "done" ? styles.planStatusDone : null,
-                    ]}
+                    className={`text-[12px] font-semibold ${
+                      plan.status === "done" ? "text-[#86EFAC]" : "text-[#94A3B8]"
+                    }`}
                   >
                     {plan.status === "done" ? "Completed" : "Planned"}
                   </Text>
                 </View>
 
                 <TouchableOpacity
-                  style={styles.deleteButton}
+                  className="h-[34px] w-[34px] items-center justify-center rounded-full bg-[rgba(249,115,22,0.12)]"
                   onPress={() => setPendingDeletePlan(plan)}
                 >
                   <Ionicons name="trash-outline" size={18} color="#FDBA74" />
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.planTitle}>{plan.title}</Text>
-              {plan.notes ? <Text style={styles.planNotes}>{plan.notes}</Text> : null}
+              <Text className="mb-[6px] text-[17px] font-bold text-[#F8FAFC]">
+                {plan.title}
+              </Text>
+              {plan.notes ? (
+                <Text className="mb-[14px] text-[14px] leading-5 text-[#CBD5E1]">
+                  {plan.notes}
+                </Text>
+              ) : null}
 
               <TouchableOpacity
-                style={[
-                  styles.statusButton,
-                  plan.status === "done" ? styles.statusButtonDone : null,
-                ]}
+                className={`self-start rounded-full border px-3 py-[9px] ${
+                  plan.status === "done"
+                    ? "border-[rgba(34,197,94,0.28)] bg-[rgba(34,197,94,0.16)]"
+                    : "border-[rgba(56,189,248,0.28)] bg-[rgba(56,189,248,0.14)]"
+                }`}
                 onPress={() => handleToggleStatus(plan)}
               >
-                <Ionicons
-                  name={plan.status === "done" ? "checkmark-circle" : "ellipse-outline"}
-                  size={18}
-                  color={palette.textPrimary}
-                />
-                <Text style={styles.statusButtonText}>
-                  {plan.status === "done" ? "Mark as planned" : "Mark as done"}
-                </Text>
+                <View className="flex-row items-center">
+                  <Ionicons
+                    name={plan.status === "done" ? "checkmark-circle" : "ellipse-outline"}
+                    size={18}
+                    color={palette.textPrimary}
+                  />
+                  <Text className="ml-2 text-[13px] font-bold text-[#F8FAFC]">
+                    {plan.status === "done" ? "Mark as planned" : "Mark as done"}
+                  </Text>
+                </View>
               </TouchableOpacity>
             </View>
           ))
@@ -601,39 +654,42 @@ export default function CalendarScreen() {
           if (!deletingPlan) setPendingDeletePlan(null);
         }}
       >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalIconWrap}>
+        <View className="flex-1 justify-center bg-[rgba(2,8,23,0.68)] p-5">
+          <View className="rounded-[24px] border border-[rgba(148,163,184,0.18)] bg-[#111C33] p-[22px]">
+            <View className="mb-4 h-[46px] w-[46px] items-center justify-center rounded-full bg-[rgba(249,115,22,0.14)]">
               <Ionicons name="trash-outline" size={22} color="#FDBA74" />
             </View>
-            <Text style={styles.modalTitle}>Delete this event?</Text>
-            <Text style={styles.modalText}>
+
+            <Text className="mb-2 text-[20px] font-extrabold text-[#F8FAFC]">
+              Delete this event?
+            </Text>
+            <Text className="text-[14px] leading-[21px] text-[#CBD5E1]">
               {pendingDeletePlan
                 ? `Remove "${pendingDeletePlan.title}" from ${selectedDate.toDateString()}?`
                 : "This will remove the selected event from your calendar."}
             </Text>
 
-            <View style={styles.modalActions}>
+            <View className="mt-5 flex-row gap-[10px]">
               <TouchableOpacity
-                style={styles.modalSecondaryButton}
+                className="flex-1 items-center rounded-[16px] border border-[rgba(148,163,184,0.18)] bg-[#0B1120] py-[14px]"
                 onPress={() => setPendingDeletePlan(null)}
                 disabled={deletingPlan}
               >
-                <Text style={styles.modalSecondaryText}>Cancel</Text>
+                <Text className="text-[14px] font-bold text-[#F8FAFC]">Cancel</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[
-                  styles.modalPrimaryButton,
-                  deletingPlan ? styles.primaryButtonDisabled : null,
-                ]}
+                className="flex-1 items-center justify-center rounded-[16px] bg-[#F97316] py-[14px]"
+                style={deletingPlan ? { opacity: 0.6 } : undefined}
                 onPress={confirmDeletePlan}
                 disabled={deletingPlan}
               >
                 {deletingPlan ? (
                   <ActivityIndicator color={palette.textPrimary} />
                 ) : (
-                  <Text style={styles.modalPrimaryText}>Delete</Text>
+                  <Text className="text-[14px] font-extrabold text-[#F8FAFC]">
+                    Delete
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -654,10 +710,15 @@ function MetricCard({
   featured?: boolean;
 }) {
   return (
-    <View style={[styles.metricCard, featured ? styles.metricCardFeatured : null]}>
-      <Text style={styles.metricLabel}>{label}</Text>
+    <View
+      className="rounded-[18px] bg-[rgba(255,255,255,0.08)] p-3"
+      style={{ flex: featured ? 1.35 : 1 }}
+    >
+      <Text className="mb-[6px] text-[11px] text-[#94A3B8]">{label}</Text>
       <Text
-        style={[styles.metricValue, featured ? styles.metricValueFeatured : null]}
+        className={`font-bold text-[#F8FAFC] ${
+          featured ? "text-[15px] leading-[21px]" : "text-[14px]"
+        }`}
         numberOfLines={featured ? 2 : 1}
       >
         {value}
@@ -665,466 +726,3 @@ function MetricCard({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: palette.background,
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  heroCard: {
-    borderRadius: 28,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
-    marginBottom: 16,
-  },
-  heroHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  heroEyebrow: {
-    color: "#FDBA74",
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    marginBottom: 10,
-  },
-  heroTitle: {
-    color: palette.textPrimary,
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: "800",
-    maxWidth: 260,
-  },
-  heroSubtitle: {
-    color: palette.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 10,
-  },
-  heroBadge: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  heroMetricsRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 18,
-  },
-  metricCard: {
-    flex: 1,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 18,
-    padding: 12,
-  },
-  metricCardFeatured: {
-    flex: 1.35,
-  },
-  metricLabel: {
-    color: palette.textMuted,
-    fontSize: 11,
-    marginBottom: 6,
-  },
-  metricValue: {
-    color: palette.textPrimary,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  metricValueFeatured: {
-    fontSize: 15,
-    lineHeight: 21,
-  },
-  warningCard: {
-    backgroundColor: "rgba(245, 158, 11, 0.12)",
-    borderColor: "rgba(245, 158, 11, 0.24)",
-    borderWidth: 1,
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 16,
-  },
-  warningTitle: {
-    color: "#FDE68A",
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 6,
-  },
-  warningText: {
-    color: palette.textSecondary,
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  calendarShell: {
-    backgroundColor: palette.surface,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: palette.cardBorder,
-    padding: 16,
-    marginBottom: 16,
-  },
-  monthHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  monthButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: palette.backgroundElevated,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  monthTitle: {
-    color: palette.textPrimary,
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  weekdaysRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 10,
-  },
-  weekday: {
-    width: "14.28%",
-    textAlign: "center",
-    color: palette.textMuted,
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  calendarGestureArea: {
-    overflow: "hidden",
-  },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-  dayCell: {
-    width: "14.28%",
-    minHeight: 64,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 16,
-    marginBottom: 6,
-    overflow: "hidden",
-  },
-  dayCellSelected: {
-    backgroundColor: palette.accentSoft,
-  },
-  dayText: {
-    color: palette.textSecondary,
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  todayText: {
-    color: "#FFD580",
-  },
-  dayTextSelected: {
-    color: palette.textPrimary,
-  },
-  dayTextEmpty: {
-    color: "transparent",
-  },
-  planCountPill: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 999,
-    backgroundColor: palette.accent,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 5,
-    marginTop: 6,
-  },
-  planCountText: {
-    color: palette.textPrimary,
-    fontSize: 10,
-    fontWeight: "800",
-  },
-  panel: {
-    backgroundColor: palette.surface,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: palette.cardBorder,
-    padding: 18,
-    marginBottom: 16,
-  },
-  panelHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 14,
-  },
-  panelTitle: {
-    color: palette.textPrimary,
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  panelSubtitle: {
-    color: palette.textMuted,
-    fontSize: 13,
-    lineHeight: 19,
-    maxWidth: 270,
-  },
-  inputLabel: {
-    color: palette.textSecondary,
-    fontSize: 13,
-    fontWeight: "600",
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: palette.backgroundElevated,
-    color: palette.textPrimary,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: palette.cardBorder,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-    fontSize: 15,
-    marginBottom: 14,
-  },
-  dropdownWrap: {
-    marginBottom: 14,
-  },
-  dropdownButton: {
-    backgroundColor: palette.backgroundElevated,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: palette.cardBorder,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  dropdownButtonText: {
-    color: palette.textPrimary,
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  dropdownMenu: {
-    backgroundColor: palette.surfaceStrong,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: palette.cardBorder,
-    marginTop: 8,
-    overflow: "hidden",
-  },
-  dropdownItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(148, 163, 184, 0.08)",
-  },
-  dropdownItemActive: {
-    backgroundColor: palette.accentSoft,
-  },
-  dropdownItemText: {
-    color: palette.textSecondary,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  dropdownItemTextActive: {
-    color: palette.textPrimary,
-  },
-  notesInput: {
-    minHeight: 88,
-    textAlignVertical: "top",
-  },
-  primaryButton: {
-    backgroundColor: palette.accent,
-    borderRadius: 18,
-    paddingVertical: 16,
-    justifyContent: "center",
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 10,
-  },
-  primaryButtonDisabled: {
-    opacity: 0.6,
-  },
-  primaryButtonText: {
-    color: palette.textPrimary,
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  errorText: {
-    color: "#FDBA74",
-    fontSize: 13,
-    marginBottom: 12,
-  },
-  emptyState: {
-    borderRadius: 20,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: palette.cardBorder,
-    backgroundColor: "rgba(2, 8, 23, 0.5)",
-    alignItems: "center",
-  },
-  emptyTitle: {
-    color: palette.textPrimary,
-    fontSize: 16,
-    fontWeight: "700",
-    marginTop: 10,
-    marginBottom: 6,
-  },
-  emptyText: {
-    color: palette.textMuted,
-    fontSize: 13,
-    lineHeight: 20,
-    textAlign: "center",
-  },
-  planCard: {
-    borderRadius: 20,
-    padding: 16,
-    backgroundColor: "rgba(17, 28, 51, 0.94)",
-    borderWidth: 1,
-    borderColor: palette.cardBorder,
-    marginBottom: 12,
-  },
-  planTopRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  planMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  planCategory: {
-    color: "#FDBA74",
-    fontSize: 12,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-  planStatus: {
-    color: palette.textMuted,
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  planStatusDone: {
-    color: "#86EFAC",
-  },
-  deleteButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "rgba(249, 115, 22, 0.12)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  planTitle: {
-    color: palette.textPrimary,
-    fontSize: 17,
-    fontWeight: "700",
-    marginBottom: 6,
-  },
-  planNotes: {
-    color: palette.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 14,
-  },
-  statusButton: {
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    borderRadius: 999,
-    backgroundColor: "rgba(56, 189, 248, 0.14)",
-    borderWidth: 1,
-    borderColor: "rgba(56, 189, 248, 0.28)",
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-  },
-  statusButtonDone: {
-    backgroundColor: "rgba(34, 197, 94, 0.16)",
-    borderColor: "rgba(34, 197, 94, 0.28)",
-  },
-  statusButtonText: {
-    color: palette.textPrimary,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(2, 8, 23, 0.68)",
-    justifyContent: "center",
-    padding: 20,
-  },
-  modalCard: {
-    backgroundColor: palette.surfaceStrong,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: palette.cardBorder,
-    padding: 22,
-  },
-  modalIconWrap: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: "rgba(249, 115, 22, 0.14)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-  },
-  modalTitle: {
-    color: palette.textPrimary,
-    fontSize: 20,
-    fontWeight: "800",
-    marginBottom: 8,
-  },
-  modalText: {
-    color: palette.textSecondary,
-    fontSize: 14,
-    lineHeight: 21,
-  },
-  modalActions: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 20,
-  },
-  modalSecondaryButton: {
-    flex: 1,
-    backgroundColor: palette.backgroundElevated,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: palette.cardBorder,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  modalSecondaryText: {
-    color: palette.textPrimary,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  modalPrimaryButton: {
-    flex: 1,
-    backgroundColor: palette.danger,
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalPrimaryText: {
-    color: palette.textPrimary,
-    fontSize: 14,
-    fontWeight: "800",
-  },
-});
