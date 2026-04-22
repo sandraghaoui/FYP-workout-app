@@ -83,13 +83,13 @@ export default function WorkoutSessionScreen() {
   const [lastRttMs, setLastRttMs] = useState<number | null>(null);
   const [avgRttMs, setAvgRttMs] = useState<number | null>(null);
   const [responsesPerSecond, setResponsesPerSecond] = useState<number | null>(
-    null,
+    null
   );
 
-  const WS_URL = useMemo(() => "wss://fypbacktest.onrender.com/ws/infer", []);
+  const WS_URL = useMemo(() => "wss://fyp-t6nc.onrender.com/ws/infer", []);
 
   const workout: Workout | undefined = workouts.find(
-    (w: Workout) => w.id === workoutId,
+    (w: Workout) => w.id === workoutId
   );
 
   if (!workout || workout.exercises.length === 0) {
@@ -108,7 +108,8 @@ export default function WorkoutSessionScreen() {
   }
 
   const currentIndex = 0;
-  const currentExercise: Exercise | undefined = workout?.exercises[currentIndex];
+  const currentExercise: Exercise | undefined =
+    workout?.exercises[currentIndex];
   const totalExercises = workout?.exercises.length ?? 0;
 
   const backendMode = useMemo<BackendMode>(() => {
@@ -227,17 +228,14 @@ export default function WorkoutSessionScreen() {
               setFeedbackLog((prev) => {
                 const next = [...newCues, ...prev];
                 return Array.from(
-                  new Set(next.map((item) => item.trim()).filter(Boolean)),
+                  new Set(next.map((item) => item.trim()).filter(Boolean))
                 ).slice(0, 10);
               });
             }
 
             if (typeof reasonRaw === "string") {
               const normalizedReason = reasonRaw.trim();
-              if (
-                normalizedReason &&
-                normalizedReason.toLowerCase() !== "ok"
-              ) {
+              if (normalizedReason && normalizedReason.toLowerCase() !== "ok") {
                 setFeedbackLog((prev) => {
                   const next = [normalizedReason, ...prev];
                   return Array.from(new Set(next)).slice(0, 10);
@@ -266,7 +264,7 @@ export default function WorkoutSessionScreen() {
           }
 
           setLastMsgType(
-            (msg as any)?.type ? String((msg as any).type) : "unknown_json",
+            (msg as any)?.type ? String((msg as any).type) : "unknown_json"
           );
         } catch {
           setLastMsgType("non_json");
@@ -306,7 +304,7 @@ export default function WorkoutSessionScreen() {
         image_b64: base64Jpeg.startsWith("data:")
           ? base64Jpeg
           : `data:image/jpeg;base64,${base64Jpeg}`,
-      }),
+      })
     );
   };
 
@@ -368,7 +366,7 @@ export default function WorkoutSessionScreen() {
             compress: 0.65,
             format: ImageManipulator.SaveFormat.JPEG,
             base64: true,
-          },
+          }
         );
 
         if (!resized.base64) return;
@@ -516,7 +514,10 @@ export default function WorkoutSessionScreen() {
     if (Platform.OS === "web") {
       return (
         <View className="relative">
-          <WebCamera className="mb-6 h-[540px] rounded-2xl bg-black" videoRef={webVideoRef} />
+          <WebCamera
+            className="mb-6 h-[540px] rounded-2xl bg-black"
+            videoRef={webVideoRef}
+          />
 
           {/* @ts-ignore */}
           <canvas ref={webCanvasRef} style={{ display: "none" }} />
@@ -529,7 +530,12 @@ export default function WorkoutSessionScreen() {
       <View className="relative">
         <CameraView
           ref={cameraRef}
-          style={{ height: 540, borderRadius: 16, overflow: "hidden", marginBottom: 24 }}
+          style={{
+            height: 540,
+            borderRadius: 16,
+            overflow: "hidden",
+            marginBottom: 24,
+          }}
           facing="front"
         />
         {renderCameraOverlay()}
@@ -540,7 +546,11 @@ export default function WorkoutSessionScreen() {
   return (
     <View className="flex-1 bg-slate-950">
       <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24 }}
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          paddingTop: 16,
+          paddingBottom: 24,
+        }}
         showsVerticalScrollIndicator={false}
       >
         <View className="mb-3 flex-row items-center justify-between">
