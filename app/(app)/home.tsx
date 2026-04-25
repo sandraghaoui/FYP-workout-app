@@ -73,6 +73,23 @@ export default function HomeScreen() {
             <StatCard borderColor="#2B7FFF" value="10-30" label="Minutes" />
             <StatCard borderColor="#00C950" value="Live" label="Coaching" />
           </View>
+
+          <View className="mt-4 px-4">
+            <TouchableOpacity
+              activeOpacity={0.9}
+              className="items-center rounded-[18px] bg-[#FF6900] px-5 py-4"
+              onPress={() =>
+                router.push({
+                  pathname: "/workout/session/[id]",
+                  params: { id: "99" },
+                })
+              }
+            >
+              <Text className="text-[15px] font-bold text-white">
+                Start Upper Body Test
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {workouts.map((w: Workout) => (

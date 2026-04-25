@@ -1,10 +1,8 @@
-
-
 export type Exercise = {
   id: number;
   name: string;
-  reps: string; 
-  image: any;  
+  reps: string;
+  image: any;
   howTo: string;
   tips: string[];
 };
@@ -20,7 +18,6 @@ export type Workout = {
   colorGradient: [string, string];
   exercises: Exercise[];
 };
-
 
 export const workouts: Workout[] = [
   {
@@ -68,7 +65,7 @@ export const workouts: Workout[] = [
           "Start in a high plank and alternate driving knees toward your chest.",
         tips: [
           "Keep shoulders over wrists.",
-          "Don't let your hips sag.",
+          "Do not let your hips sag.",
           "Control the movement before adding speed.",
         ],
       },
@@ -106,7 +103,7 @@ export const workouts: Workout[] = [
           "From a high plank, lower your chest toward the floor and push back up.",
         tips: [
           "Body in a straight line.",
-          "Elbows at ~45°.",
+          "Elbows at about 45 degrees.",
           "Engage your core.",
         ],
       },
@@ -116,7 +113,7 @@ export const workouts: Workout[] = [
         reps: "10 reps each leg",
         image: require("../assets/images/image2.png"),
         howTo:
-          "Step forward into a lunge, lower until both knees are near 90°, then push back.",
+          "Step forward into a lunge, lower until both knees are near 90 degrees, then push back.",
         tips: [
           "Front knee over ankle.",
           "Torso upright.",
@@ -128,10 +125,9 @@ export const workouts: Workout[] = [
         name: "Glute Bridge",
         reps: "15 reps",
         image: require("../assets/images/image2.png"),
-        howTo:
-          "Lie on your back, feet flat, lift hips while squeezing glutes.",
+        howTo: "Lie on your back, feet flat, lift hips while squeezing glutes.",
         tips: [
-          "Don't overarch your lower back.",
+          "Do not overarch your lower back.",
           "Squeeze at the top.",
           "Feet hip-width apart.",
         ],
@@ -153,13 +149,38 @@ export const workouts: Workout[] = [
         name: "Jog in Place",
         reps: "60 sec",
         image: require("../assets/images/jogging.jpg"),
+        howTo: "Light jog on the spot, lifting feet slightly off the ground.",
+        tips: ["Relax your shoulders.", "Keep a steady pace.", "Breathe rhythmically."],
+      },
+      {
+        id: 2,
+        name: "Mountain Climbers",
+        reps: "20 reps",
+        image: require("../assets/images/image3.png"),
         howTo:
-          "Light jog on the spot, lifting feet slightly off the ground.",
+          "Start in a high plank and alternate driving knees toward your chest.",
         tips: [
-          "Relax your shoulders.",
-          "Keep a steady pace.",
-          "Breathe rhythmically.",
+          "Keep shoulders over wrists.",
+          "Do not let your hips sag.",
+          "Control the movement before adding speed.",
         ],
+      },
+      {
+        id: 3,
+        name: "Jumping Jacks",
+        reps: "30 sec",
+        image: require("../assets/images/jumpingjacks.jpg"),
+        howTo:
+          "Start with feet together and hands at your sides. Jump your feet out while raising your arms overhead, then return.",
+        tips: ["Land softly.", "Keep rhythm.", "Stay relaxed."],
+      },
+      {
+        id: 4,
+        name: "High Knees",
+        reps: "30 sec",
+        image: require("../assets/images/image3.png"),
+        howTo: "Run in place while driving your knees toward your chest.",
+        tips: ["Stay light on your feet.", "Pump your arms.", "Keep your chest up."],
       },
     ],
   },
@@ -180,11 +201,24 @@ export const workouts: Workout[] = [
         image: require("../assets/images/crunches.jpg"),
         howTo:
           "Lie on your back, knees bent, curl shoulders off the floor toward knees.",
-        tips: [
-          "Don't pull on your neck.",
-          "Exhale as you crunch.",
-          "Lower with control.",
-        ],
+        tips: ["Do not pull on your neck.", "Exhale as you crunch.", "Lower with control."],
+      },
+      {
+        id: 2,
+        name: "Mountain Climbers",
+        reps: "20 reps",
+        image: require("../assets/images/image3.png"),
+        howTo:
+          "Start in a high plank and alternate driving knees toward your chest.",
+        tips: ["Keep your core tight.", "Do not let your hips sag.", "Move with control."],
+      },
+      {
+        id: 3,
+        name: "Glute Bridge",
+        reps: "15 reps",
+        image: require("../assets/images/image2.png"),
+        howTo: "Lie on your back, feet flat, lift hips while squeezing glutes.",
+        tips: ["Squeeze at the top.", "Keep ribs down.", "Lower slowly."],
       },
     ],
   },
@@ -198,18 +232,14 @@ export const workouts: Workout[] = [
     image: require("../assets/images/image5.png"),
     colorGradient: ["#F6339A", "#FF2056"],
     exercises: [
-       {
+      {
         id: 1,
         name: "Push-Ups",
         reps: "12 reps",
         image: require("../assets/images/image2.png"),
         howTo:
           "From a high plank, lower your chest toward the floor and push back up.",
-        tips: [
-          "Body in a straight line.",
-          "Elbows at ~45°.",
-          "Engage your core.",
-        ],
+        tips: ["Body in a straight line.", "Elbows at about 45 degrees.", "Engage your core."],
       },
       {
         id: 2,
@@ -217,11 +247,75 @@ export const workouts: Workout[] = [
         reps: "10 reps",
         image: require("../assets/images/burpees.jpg"),
         howTo:
-          "Squat, jump to plank, push-up (optional), jump back in and explode upward.",
+          "Squat, jump to plank, push-up optional, jump back in and explode upward.",
+        tips: ["Move in a smooth flow.", "Land softly.", "Prioritize form over speed."],
+      },
+      {
+        id: 3,
+        name: "Squats",
+        reps: "15 reps",
+        image: require("../assets/images/squats.jpg"),
+        howTo:
+          "Stand with feet shoulder-width apart and sit back as if into a chair.",
+        tips: ["Keep your chest up.", "Push through your heels.", "Control the descent."],
+      },
+      {
+        id: 4,
+        name: "Crunches",
+        reps: "15 reps",
+        image: require("../assets/images/crunches.jpg"),
+        howTo: "Lie on your back, knees bent, curl shoulders off the floor.",
+        tips: ["Do not pull your neck.", "Exhale as you crunch.", "Lower slowly."],
+      },
+    ],
+  },
+  {
+    id: 99,
+    title: "Upper Body Test",
+    description: "Test workout with bicep curls, shoulder press, and push-ups",
+    duration: "15 min",
+    exercisesCountLabel: "3 exercises",
+    tag: "Test Workout",
+    image: require("../assets/images/image3.png"),
+    colorGradient: ["#FF6900", "#7C2D12"],
+    exercises: [
+      {
+        id: 1,
+        name: "Bicep Curls",
+        reps: "5 reps",
+        image: require("../assets/images/image3.png"),
+        howTo:
+          "Stand tall and curl the weight up while keeping your elbows stable.",
         tips: [
-          "Move in a smooth flow.",
-          "Land softly.",
-          "Prioritize form over speed.",
+          "Face the camera from the front.",
+          "Keep your elbows close to your body.",
+          "Avoid swinging your torso.",
+        ],
+      },
+      {
+        id: 2,
+        name: "Shoulder Press",
+        reps: "5 reps",
+        image: require("../assets/images/image3.png"),
+        howTo:
+          "Press your hands upward over your shoulders, then lower with control.",
+        tips: [
+          "Face the camera from the front.",
+          "Press straight up.",
+          "Lower until elbows are around shoulder level.",
+        ],
+      },
+      {
+        id: 3,
+        name: "Push-Ups",
+        reps: "5 reps",
+        image: require("../assets/images/image2.png"),
+        howTo:
+          "Turn sideways to the camera. Lower your chest toward the floor, then push back up.",
+        tips: [
+          "Use a side view for best tracking.",
+          "Keep your body straight.",
+          "Make sure hands, shoulders, hips, and feet stay visible.",
         ],
       },
     ],

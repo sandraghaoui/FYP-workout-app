@@ -1,4 +1,4 @@
-// app/workout/session/[id].tsx
+// app/(app)/workout/session/[id].tsx
 
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
@@ -16,7 +16,7 @@ import { Exercise, Workout, workouts } from "../../../../constants/workouts";
 
 /* ===================== TYPES ===================== */
 
-type BackendMode = "squat" | "pushup" | "curl" | "crunch";
+type BackendMode = "squat" | "pushup" | "curl" | "crunch" | "shoulder_press";
 
 type FrameStatePayload = {
   tracking?: {
@@ -60,10 +60,17 @@ export default function WorkoutSessionScreen() {
   const webVideoRef = useRef<any>(null);
   const webCanvasRef = useRef<any>(null);
 
+  const rawRepRef = useRef(0);
+  const repBaseRef = useRef(0);
+  const switchLockRef = useRef(false);
+
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [workoutFinished, setWorkoutFinished] = useState(false);
+
   const [wsConnected, setWsConnected] = useState(false);
   const [streaming, setStreaming] = useState(false);
 
-  const [repCount, setRepCount] = useState<number | null>(null);
+  const [repCount, setRepCount] = useState<number | null>(0);
   const [stage, setStage] = useState<string>("-");
   const [trackingStatus, setTrackingStatus] = useState<
     "ok" | "unstable" | "lost"
@@ -83,13 +90,13 @@ export default function WorkoutSessionScreen() {
   const [lastRttMs, setLastRttMs] = useState<number | null>(null);
   const [avgRttMs, setAvgRttMs] = useState<number | null>(null);
   const [responsesPerSecond, setResponsesPerSecond] = useState<number | null>(
-    null
+    null,
   );
 
-  const WS_URL = useMemo(() => "wss://fyp-t6nc.onrender.com/ws/infer", []);
+  const WS_URL = useMemo(() => "wss://fypbacktest.onrender.com/ws/infer", []);
 
   const workout: Workout | undefined = workouts.find(
-    (w: Workout) => w.id === workoutId
+    (w: Workout) => w.id === workoutId,
   );
 
   if (!workout || workout.exercises.length === 0) {
@@ -107,24 +114,32 @@ export default function WorkoutSessionScreen() {
     );
   }
 
-  const currentIndex = 0;
-  const currentExercise: Exercise | undefined =
-    workout?.exercises[currentIndex];
-  const totalExercises = workout?.exercises.length ?? 0;
+  const currentExercise: Exercise = workout.exercises[currentIndex];
+  const totalExercises = workout.exercises.length;
 
   const backendMode = useMemo<BackendMode>(() => {
     const name = (currentExercise?.name || "").toLowerCase();
-    if (name.includes("squat")) return "squat";
-    if (name.includes("push")) return "pushup";
+
+    if (name.includes("shoulder")) return "shoulder_press";
+    if (
+      name.includes("push-up") ||
+      name.includes("pushup") ||
+      name.includes("push up") ||
+      name.includes("push")
+    ) {
+      return "pushup";
+    }
     if (name.includes("curl")) return "curl";
     if (name.includes("crunch")) return "crunch";
+    if (name.includes("squat")) return "squat";
+
     return "squat";
   }, [currentExercise?.name]);
 
   const totalReps = useMemo(() => {
-    const match = currentExercise?.reps?.match(/\d+/);
+    const match = currentExercise.reps.match(/\d+/);
     return match ? Number(match[0]) : null;
-  }, [currentExercise?.reps]);
+  }, [currentExercise.reps]);
 
   const doneReps = repCount ?? 0;
   const remainingReps =
@@ -135,13 +150,60 @@ export default function WorkoutSessionScreen() {
       : 0;
 
   const nextExercise: Exercise | undefined =
-    workout?.exercises[currentIndex + 1];
+    workout.exercises[currentIndex + 1];
 
   const primaryFeedback = useMemo(() => {
     if (cues.length > 0) return cues[0];
     if (trackingReason && trackingReason !== "-") return trackingReason;
     return "Keep your full body in frame for clearer coaching.";
   }, [cues, trackingReason]);
+
+  const resetExerciseState = () => {
+    setRepCount(0);
+    setStage("-");
+    setCues([]);
+    setFeedbackLog([]);
+    setTrackingReason("-");
+    setLastParsedRep(null);
+  };
+
+  const stopStreaming = () => {
+    setStreaming(false);
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = null;
+    busyRef.current = false;
+  };
+
+  const goToNextExercise = () => {
+    if (switchLockRef.current) return;
+
+    switchLockRef.current = true;
+
+    if (currentIndex < workout.exercises.length - 1) {
+      repBaseRef.current = rawRepRef.current;
+      setCurrentIndex((prev) => prev + 1);
+      resetExerciseState();
+
+      setTimeout(() => {
+        switchLockRef.current = false;
+      }, 1200);
+    } else {
+      setWorkoutFinished(true);
+      stopStreaming();
+
+      setTimeout(() => {
+        switchLockRef.current = false;
+      }, 1200);
+    }
+  };
+
+  useEffect(() => {
+    if (workoutFinished) return;
+    if (totalReps === null) return;
+    if (doneReps < totalReps) return;
+
+    goToNextExercise();
+  }, [doneReps, totalReps, workoutFinished]);
 
   useEffect(() => {
     let ws: WebSocket | null = null;
@@ -184,17 +246,24 @@ export default function WorkoutSessionScreen() {
                   : parseInt(String(repsRaw), 10);
 
               if (!Number.isNaN(parsed)) {
-                setRepCount(parsed);
+                rawRepRef.current = parsed;
+
+                if (parsed < repBaseRef.current) {
+                  repBaseRef.current = 0;
+                }
+
+                const exerciseReps = Math.max(parsed - repBaseRef.current, 0);
+                setRepCount(exerciseReps);
 
                 const frameId =
                   (msg as any)?.frame_id ?? p?.frame_id ?? undefined;
 
                 setLastParsedRep({
-                  v: parsed,
+                  v: exerciseReps,
                   frame: typeof frameId === "number" ? frameId : undefined,
                 });
 
-                setLastMsgType(`frame_state(reps=${parsed})`);
+                setLastMsgType(`frame_state(reps=${exerciseReps})`);
               }
             }
 
@@ -228,14 +297,17 @@ export default function WorkoutSessionScreen() {
               setFeedbackLog((prev) => {
                 const next = [...newCues, ...prev];
                 return Array.from(
-                  new Set(next.map((item) => item.trim()).filter(Boolean))
+                  new Set(next.map((item) => item.trim()).filter(Boolean)),
                 ).slice(0, 10);
               });
             }
 
             if (typeof reasonRaw === "string") {
               const normalizedReason = reasonRaw.trim();
-              if (normalizedReason && normalizedReason.toLowerCase() !== "ok") {
+              if (
+                normalizedReason &&
+                normalizedReason.toLowerCase() !== "ok"
+              ) {
                 setFeedbackLog((prev) => {
                   const next = [normalizedReason, ...prev];
                   return Array.from(new Set(next)).slice(0, 10);
@@ -253,7 +325,15 @@ export default function WorkoutSessionScreen() {
             setLastMsgType("legacy(rep_count/stage)");
             const m: any = msg;
 
-            if (typeof m.rep_count === "number") setRepCount(m.rep_count);
+            if (typeof m.rep_count === "number") {
+              rawRepRef.current = m.rep_count;
+
+              if (m.rep_count < repBaseRef.current) {
+                repBaseRef.current = 0;
+              }
+
+              setRepCount(Math.max(m.rep_count - repBaseRef.current, 0));
+            }
             if (typeof m.stage === "string") setStage(m.stage);
 
             setTrackingStatus("ok");
@@ -264,7 +344,7 @@ export default function WorkoutSessionScreen() {
           }
 
           setLastMsgType(
-            (msg as any)?.type ? String((msg as any).type) : "unknown_json"
+            (msg as any)?.type ? String((msg as any).type) : "unknown_json",
           );
         } catch {
           setLastMsgType("non_json");
@@ -301,10 +381,11 @@ export default function WorkoutSessionScreen() {
         frame_id: ++frameIdRef.current,
         ts: Date.now(),
         mode: backendMode,
+        exercise: backendMode,
         image_b64: base64Jpeg.startsWith("data:")
           ? base64Jpeg
           : `data:image/jpeg;base64,${base64Jpeg}`,
-      })
+      }),
     );
   };
 
@@ -366,7 +447,7 @@ export default function WorkoutSessionScreen() {
             compress: 0.65,
             format: ImageManipulator.SaveFormat.JPEG,
             base64: true,
-          }
+          },
         );
 
         if (!resized.base64) return;
@@ -377,17 +458,31 @@ export default function WorkoutSessionScreen() {
     }, 180);
   };
 
-  const stopStreaming = () => {
-    setStreaming(false);
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = null;
-    busyRef.current = false;
-  };
-
   useEffect(() => stopStreaming, []);
 
   if (Platform.OS !== "web") {
     if (!permission) return <View className="flex-1 bg-slate-950" />;
+  }
+
+  if (workoutFinished) {
+    return (
+      <View className="flex-1 items-center justify-center bg-slate-950 px-6">
+        <Text className="mb-3 text-2xl font-bold text-white">
+          Workout Complete
+        </Text>
+
+        <Text className="mb-6 text-center text-sm text-slate-400">
+          You completed {workout.title}.
+        </Text>
+
+        <TouchableOpacity
+          className="rounded-2xl bg-orange-500 px-6 py-3"
+          onPress={() => router.replace("/home")}
+        >
+          <Text className="font-semibold text-white">Back Home</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   const renderCameraOverlay = () => (
@@ -514,10 +609,7 @@ export default function WorkoutSessionScreen() {
     if (Platform.OS === "web") {
       return (
         <View className="relative">
-          <WebCamera
-            className="mb-6 h-[540px] rounded-2xl bg-black"
-            videoRef={webVideoRef}
-          />
+          <WebCamera className="mb-6 h-[540px] rounded-2xl bg-black" videoRef={webVideoRef} />
 
           {/* @ts-ignore */}
           <canvas ref={webCanvasRef} style={{ display: "none" }} />
@@ -530,12 +622,7 @@ export default function WorkoutSessionScreen() {
       <View className="relative">
         <CameraView
           ref={cameraRef}
-          style={{
-            height: 540,
-            borderRadius: 16,
-            overflow: "hidden",
-            marginBottom: 24,
-          }}
+          style={{ height: 540, borderRadius: 16, overflow: "hidden", marginBottom: 24 }}
           facing="front"
         />
         {renderCameraOverlay()}
@@ -546,11 +633,7 @@ export default function WorkoutSessionScreen() {
   return (
     <View className="flex-1 bg-slate-950">
       <ScrollView
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingTop: 16,
-          paddingBottom: 24,
-        }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
       >
         <View className="mb-3 flex-row items-center justify-between">
@@ -621,7 +704,7 @@ export default function WorkoutSessionScreen() {
 
             <Text className="text-[11px] leading-4 text-gray-200">
               {cues[0] ||
-                currentExercise!.tips[0] ||
+                currentExercise.tips[0] ||
                 "Maintain proper form throughout."}
             </Text>
           </View>
@@ -629,20 +712,20 @@ export default function WorkoutSessionScreen() {
           <TouchableOpacity
             activeOpacity={0.9}
             className="mb-2 items-center rounded-2xl bg-rose-500 py-3"
-            onPress={() => {}}
+            onPress={goToNextExercise}
           >
             <Text className="text-[13px] font-semibold text-white">
-              🔥 Just 10 more! You got this!
+              Skip to Next Exercise
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             activeOpacity={0.9}
             className="mb-2 items-center rounded-2xl bg-orange-500 py-3"
-            onPress={() => {}}
+            onPress={() => (streaming ? stopStreaming() : startStreaming())}
           >
             <Text className="text-[13px] font-semibold text-white">
-              ⏸️ Pause Workout
+              {streaming ? "Pause Workout" : "Resume Workout"}
             </Text>
           </TouchableOpacity>
         </View>
@@ -653,10 +736,10 @@ export default function WorkoutSessionScreen() {
           </Text>
           {nextExercise ? (
             <Text className="text-xs text-white">
-              {nextExercise.name} - 10 reps
+              {nextExercise.name} - {nextExercise.reps}
             </Text>
           ) : (
-            <Text className="text-xs text-white">Finish Strong 💪</Text>
+            <Text className="text-xs text-white">Finish Strong</Text>
           )}
         </View>
       </ScrollView>
