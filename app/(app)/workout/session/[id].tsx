@@ -1,5 +1,3 @@
-// app/(app)/workout/session/[id].tsx
-
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as ImageManipulator from "expo-image-manipulator";
@@ -12,11 +10,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Exercise, Workout, workouts } from "../../../../constants/workouts";
+import {
+  BackendExerciseKey,
+  Exercise,
+  Workout,
+  workouts,
+} from "../../../../constants/workouts";
 
-/* ===================== TYPES ===================== */
-
-type BackendMode = "squat" | "pushup" | "curl" | "crunch" | "shoulder_press";
+type BackendMode = BackendExerciseKey;
 
 type FrameStatePayload = {
   tracking?: {
@@ -44,7 +45,7 @@ type WSMessage =
   | { frame_id?: number; type: "frame_state"; payload: FrameStatePayload }
   | { frame_id?: number; rep_count?: number; stage?: string };
 
-/* ===================== SCREEN ===================== */
+const FALLBACK_MODE: BackendMode = "squat";
 
 export default function WorkoutSessionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -56,20 +57,16 @@ export default function WorkoutSessionScreen() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const busyRef = useRef(false);
   const frameIdRef = useRef(0);
-
   const webVideoRef = useRef<any>(null);
   const webCanvasRef = useRef<any>(null);
-
   const rawRepRef = useRef(0);
   const repBaseRef = useRef(0);
   const switchLockRef = useRef(false);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [workoutFinished, setWorkoutFinished] = useState(false);
-
   const [wsConnected, setWsConnected] = useState(false);
   const [streaming, setStreaming] = useState(false);
-
   const [repCount, setRepCount] = useState<number | null>(0);
   const [stage, setStage] = useState<string>("-");
   const [trackingStatus, setTrackingStatus] = useState<
@@ -80,7 +77,6 @@ export default function WorkoutSessionScreen() {
   const [lostFrames, setLostFrames] = useState<number>(0);
   const [cues, setCues] = useState<string[]>([]);
   const [feedbackLog, setFeedbackLog] = useState<string[]>([]);
-
   const [lastMsgType, setLastMsgType] = useState<string>("-");
   const [lastRawShort, setLastRawShort] = useState<string>("");
   const [lastParsedRep, setLastParsedRep] = useState<{
@@ -98,48 +94,17 @@ export default function WorkoutSessionScreen() {
   const workout: Workout | undefined = workouts.find(
     (w: Workout) => w.id === workoutId,
   );
-
-  if (!workout || workout.exercises.length === 0) {
-    return (
-      <View className="flex-1 bg-slate-950 px-4 pt-4">
-        <View className="mb-3 flex-row items-center justify-between">
-          <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-        <Text className="mt-10 text-center text-sm text-white">
-          Workout not found.
-        </Text>
-      </View>
-    );
-  }
-
-  const currentExercise: Exercise = workout.exercises[currentIndex];
-  const totalExercises = workout.exercises.length;
+  const currentExercise: Exercise | undefined = workout?.exercises[currentIndex];
+  const totalExercises = workout?.exercises.length ?? 0;
 
   const backendMode = useMemo<BackendMode>(() => {
-    const name = (currentExercise?.name || "").toLowerCase();
-
-    if (name.includes("shoulder")) return "shoulder_press";
-    if (
-      name.includes("push-up") ||
-      name.includes("pushup") ||
-      name.includes("push up") ||
-      name.includes("push")
-    ) {
-      return "pushup";
-    }
-    if (name.includes("curl")) return "curl";
-    if (name.includes("crunch")) return "crunch";
-    if (name.includes("squat")) return "squat";
-
-    return "squat";
-  }, [currentExercise?.name]);
+    return currentExercise?.backendKey ?? FALLBACK_MODE;
+  }, [currentExercise?.backendKey]);
 
   const totalReps = useMemo(() => {
-    const match = currentExercise.reps.match(/\d+/);
+    const match = currentExercise?.reps.match(/\d+/);
     return match ? Number(match[0]) : null;
-  }, [currentExercise.reps]);
+  }, [currentExercise?.reps]);
 
   const doneReps = repCount ?? 0;
   const remainingReps =
@@ -148,9 +113,7 @@ export default function WorkoutSessionScreen() {
     totalReps && totalReps > 0
       ? Math.min(100, Math.round((doneReps / totalReps) * 100))
       : 0;
-
-  const nextExercise: Exercise | undefined =
-    workout.exercises[currentIndex + 1];
+  const nextExercise: Exercise | undefined = workout?.exercises[currentIndex + 1];
 
   const primaryFeedback = useMemo(() => {
     if (cues.length > 0) return cues[0];
@@ -175,6 +138,7 @@ export default function WorkoutSessionScreen() {
   };
 
   const goToNextExercise = () => {
+    if (!workout) return;
     if (switchLockRef.current) return;
 
     switchLockRef.current = true;
@@ -198,12 +162,12 @@ export default function WorkoutSessionScreen() {
   };
 
   useEffect(() => {
-    if (workoutFinished) return;
+    if (!workout || workoutFinished) return;
     if (totalReps === null) return;
     if (doneReps < totalReps) return;
 
     goToNextExercise();
-  }, [doneReps, totalReps, workoutFinished]);
+  }, [doneReps, totalReps, workoutFinished, workout]);
 
   useEffect(() => {
     let ws: WebSocket | null = null;
@@ -464,6 +428,21 @@ export default function WorkoutSessionScreen() {
     if (!permission) return <View className="flex-1 bg-slate-950" />;
   }
 
+  if (!workout || !currentExercise) {
+    return (
+      <View className="flex-1 bg-slate-950 px-4 pt-4">
+        <View className="mb-3 flex-row items-center justify-between">
+          <TouchableOpacity onPress={() => router.back()}>
+            <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+        <Text className="mt-10 text-center text-sm text-white">
+          Workout not found.
+        </Text>
+      </View>
+    );
+  }
+
   if (workoutFinished) {
     return (
       <View className="flex-1 items-center justify-center bg-slate-950 px-6">
@@ -580,8 +559,7 @@ export default function WorkoutSessionScreen() {
 
         <Text numberOfLines={1} className="mt-2.5 text-[11px] text-slate-500">
           {lastMsgType} | RTT {lastRttMs !== null ? `${lastRttMs}ms` : "-"} |
-          FPS {responsesPerSecond !== null ? responsesPerSecond : "-"} | Lost{" "}
-          {lostFrames}
+          FPS {responsesPerSecond !== null ? responsesPerSecond : "-"} | Lost {lostFrames}
         </Text>
       </View>
     </>
@@ -609,10 +587,14 @@ export default function WorkoutSessionScreen() {
     if (Platform.OS === "web") {
       return (
         <View className="relative">
-          <WebCamera className="mb-6 h-[540px] rounded-2xl bg-black" videoRef={webVideoRef} />
-
-          {/* @ts-ignore */}
-          <canvas ref={webCanvasRef} style={{ display: "none" }} />
+          <WebCamera
+            className="mb-6 h-[540px] rounded-2xl bg-black"
+            videoRef={webVideoRef}
+          />
+          {React.createElement("canvas", {
+            ref: webCanvasRef,
+            style: { display: "none" },
+          })}
           {renderCameraOverlay()}
         </View>
       );
@@ -622,7 +604,12 @@ export default function WorkoutSessionScreen() {
       <View className="relative">
         <CameraView
           ref={cameraRef}
-          style={{ height: 540, borderRadius: 16, overflow: "hidden", marginBottom: 24 }}
+          style={{
+            height: 540,
+            borderRadius: 16,
+            overflow: "hidden",
+            marginBottom: 24,
+          }}
           facing="front"
         />
         {renderCameraOverlay()}
@@ -633,7 +620,11 @@ export default function WorkoutSessionScreen() {
   return (
     <View className="flex-1 bg-slate-950">
       <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24 }}
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          paddingTop: 16,
+          paddingBottom: 24,
+        }}
         showsVerticalScrollIndicator={false}
       >
         <View className="mb-3 flex-row items-center justify-between">
@@ -746,6 +737,7 @@ export default function WorkoutSessionScreen() {
     </View>
   );
 }
+
 function WebCamera({
   className,
   videoRef,
@@ -776,7 +768,7 @@ function WebCamera({
           await videoRef.current.play();
         }
       } catch (e: any) {
-        setError(e?.message || "Camera blocked (needs HTTPS or localhost)");
+        setError(e?.message || "Camera blocked. Use HTTPS or localhost.");
       }
     };
 
@@ -799,15 +791,14 @@ function WebCamera({
 
   return (
     <View className={`overflow-hidden ${className ?? ""}`}>
-      {/* @ts-ignore */}
-      <video
-        ref={(el) => {
+      {React.createElement("video", {
+        ref: (el: any) => {
           videoRef.current = el;
-        }}
-        playsInline
-        muted
-        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-      />
+        },
+        playsInline: true,
+        muted: true,
+        style: { width: "100%", height: "100%", objectFit: "cover" },
+      })}
     </View>
   );
 }

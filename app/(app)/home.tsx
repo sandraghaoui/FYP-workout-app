@@ -69,7 +69,7 @@ export default function HomeScreen() {
           </ImageBackground>
 
           <View className="mt-[14px] flex-row justify-between px-4">
-            <StatCard borderColor="#FF6900" value="6" label="Workouts" />
+            <StatCard borderColor="#FF6900" value={String(workouts.length)} label="Workouts" />
             <StatCard borderColor="#2B7FFF" value="10-30" label="Minutes" />
             <StatCard borderColor="#00C950" value="Live" label="Coaching" />
           </View>

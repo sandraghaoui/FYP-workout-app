@@ -1,3 +1,11 @@
+export type BackendExerciseKey =
+  | "squat"
+  | "pushup"
+  | "curl"
+  | "crunch"
+  | "reverse_lunge"
+  | "shoulder_press";
+
 export type Exercise = {
   id: number;
   name: string;
@@ -5,6 +13,7 @@ export type Exercise = {
   image: any;
   howTo: string;
   tips: string[];
+  backendKey: BackendExerciseKey;
 };
 
 export type Workout = {
@@ -23,50 +32,53 @@ export const workouts: Workout[] = [
   {
     id: 1,
     title: "Quick Burn",
-    description: "Quick 10-minute workout to burn calories fast",
+    description: "A short AI-tracked routine for quick movement and form practice",
     duration: "10 min",
     exercisesCountLabel: "3 exercises",
-    tag: "Fat Burning",
+    tag: "Quick Start",
     image: require("../assets/images/image3.png"),
     colorGradient: ["#FF6900", "#FB2C36"],
     exercises: [
       {
         id: 1,
-        name: "Jumping Jacks",
-        reps: "30 sec",
-        image: require("../assets/images/jumpingjacks.jpg"),
+        name: "Squats",
+        backendKey: "squat",
+        reps: "10 reps",
+        image: require("../assets/images/squats.jpg"),
         howTo:
-          "Start with feet together and hands at your sides. Jump your feet out while raising your arms overhead, then return.",
+          "Stand with feet shoulder-width apart, sit your hips back, bend your knees, then return to standing.",
         tips: [
-          "Land softly on the balls of your feet.",
-          "Keep your core engaged.",
-          "Maintain a steady breathing rhythm.",
+          "Face the camera from the front.",
+          "Keep your chest lifted.",
+          "Use controlled depth instead of rushing.",
         ],
       },
       {
         id: 2,
-        name: "High Knees",
-        reps: "30 sec",
-        image: require("../assets/images/image3.png"),
+        name: "Push-Ups",
+        backendKey: "pushup",
+        reps: "8 reps",
+        image: require("../assets/images/image2.png"),
         howTo:
-          "Run in place while driving your knees toward your chest as high as possible.",
+          "Start in a plank, lower your chest toward the floor, then press back up.",
         tips: [
-          "Stay light on your feet.",
-          "Pump your arms naturally.",
-          "Keep your chest lifted.",
+          "Use a side view for best tracking.",
+          "Keep shoulders, hips, and ankles visible.",
+          "Keep your body in one straight line.",
         ],
       },
       {
         id: 3,
-        name: "Mountain Climbers",
-        reps: "20 reps",
-        image: require("../assets/images/image3.png"),
+        name: "Crunches",
+        backendKey: "crunch",
+        reps: "12 reps",
+        image: require("../assets/images/crunches.jpg"),
         howTo:
-          "Start in a high plank and alternate driving knees toward your chest.",
+          "Lie on your back with knees bent, curl your shoulders upward, then lower with control.",
         tips: [
-          "Keep shoulders over wrists.",
-          "Do not let your hips sag.",
-          "Control the movement before adding speed.",
+          "Use a side view if possible.",
+          "Do not pull on your neck.",
+          "Move slowly enough for the camera to track you.",
         ],
       },
     ],
@@ -74,7 +86,7 @@ export const workouts: Workout[] = [
   {
     id: 2,
     title: "Strength Builder",
-    description: "Build strength and muscle with this 20-minute routine",
+    description: "Build strength with AI-tracked upper and lower body movements",
     duration: "20 min",
     exercisesCountLabel: "4 exercises",
     tag: "Muscle Building",
@@ -84,52 +96,57 @@ export const workouts: Workout[] = [
       {
         id: 1,
         name: "Squats",
-        reps: "15 reps",
+        backendKey: "squat",
+        reps: "5 reps",
         image: require("../assets/images/squats.jpg"),
         howTo:
           "Stand with feet shoulder-width apart and sit back as if into a chair, keeping your chest up.",
         tips: [
-          "Bend your knees to about 90 degrees.",
-          "Keep your back straight.",
+          "Face the camera from the front.",
+          "Keep knees tracking over toes.",
           "Push through your heels.",
         ],
       },
       {
         id: 2,
         name: "Push-Ups",
-        reps: "12 reps",
+        backendKey: "pushup",
+        reps: "5 reps",
         image: require("../assets/images/image2.png"),
         howTo:
           "From a high plank, lower your chest toward the floor and push back up.",
         tips: [
-          "Body in a straight line.",
-          "Elbows at about 45 degrees.",
-          "Engage your core.",
+          "Use a side view.",
+          "Elbows around 45 degrees.",
+          "Keep your core tight.",
         ],
       },
       {
         id: 3,
-        name: "Lunges",
-        reps: "10 reps each leg",
+        name: "Reverse Lunges",
+        backendKey: "reverse_lunge",
+        reps: "8 reps each leg",
         image: require("../assets/images/image2.png"),
         howTo:
-          "Step forward into a lunge, lower until both knees are near 90 degrees, then push back.",
+          "Step one leg backward, lower into a lunge, then push through the front foot to stand again.",
         tips: [
-          "Front knee over ankle.",
-          "Torso upright.",
-          "Control the descent.",
+          "Face the camera from the front.",
+          "Keep your torso upright.",
+          "Separate your stance enough for the tracker to see both knees.",
         ],
       },
       {
         id: 4,
-        name: "Glute Bridge",
-        reps: "15 reps",
-        image: require("../assets/images/image2.png"),
-        howTo: "Lie on your back, feet flat, lift hips while squeezing glutes.",
+        name: "Shoulder Press",
+        backendKey: "shoulder_press",
+        reps: "10 reps",
+        image: require("../assets/images/image3.png"),
+        howTo:
+          "Start with hands near shoulder level, press upward over your shoulders, then lower with control.",
         tips: [
-          "Do not overarch your lower back.",
-          "Squeeze at the top.",
-          "Feet hip-width apart.",
+          "Face the camera from the front.",
+          "Keep elbows and wrists visible.",
+          "Avoid leaning backward.",
         ],
       },
     ],
@@ -137,7 +154,7 @@ export const workouts: Workout[] = [
   {
     id: 3,
     title: "Endurance Master",
-    description: "Push your limits with this 30-minute endurance challenge",
+    description: "A longer AI-tracked routine using simple bodyweight movements",
     duration: "30 min",
     exercisesCountLabel: "4 exercises",
     tag: "Endurance",
@@ -146,48 +163,66 @@ export const workouts: Workout[] = [
     exercises: [
       {
         id: 1,
-        name: "Jog in Place",
-        reps: "60 sec",
-        image: require("../assets/images/jogging.jpg"),
-        howTo: "Light jog on the spot, lifting feet slightly off the ground.",
-        tips: ["Relax your shoulders.", "Keep a steady pace.", "Breathe rhythmically."],
+        name: "Squats",
+        backendKey: "squat",
+        reps: "5 reps",
+        image: require("../assets/images/squats.jpg"),
+        howTo:
+          "Sit your hips back, bend your knees under control, then stand tall again.",
+        tips: [
+          "Face the camera from the front.",
+          "Keep your chest lifted.",
+          "Do not bounce at the bottom.",
+        ],
       },
       {
         id: 2,
-        name: "Mountain Climbers",
-        reps: "20 reps",
-        image: require("../assets/images/image3.png"),
+        name: "Reverse Lunges",
+        backendKey: "reverse_lunge",
+        reps: "5 reps",
+        image: require("../assets/images/image2.png"),
         howTo:
-          "Start in a high plank and alternate driving knees toward your chest.",
+          "Step backward into a lunge, lower under control, then return to standing.",
         tips: [
-          "Keep shoulders over wrists.",
-          "Do not let your hips sag.",
-          "Control the movement before adding speed.",
+          "Keep the front knee stable.",
+          "Stay tall through the torso.",
+          "Move slowly enough for tracking.",
         ],
       },
       {
         id: 3,
-        name: "Jumping Jacks",
-        reps: "30 sec",
-        image: require("../assets/images/jumpingjacks.jpg"),
+        name: "Push-Ups",
+        backendKey: "pushup",
+        reps: "5 reps",
+        image: require("../assets/images/image2.png"),
         howTo:
-          "Start with feet together and hands at your sides. Jump your feet out while raising your arms overhead, then return.",
-        tips: ["Land softly.", "Keep rhythm.", "Stay relaxed."],
+          "Lower from a plank and press back up while keeping a straight body line.",
+        tips: [
+          "Use a side view.",
+          "Keep hips from sagging.",
+          "Lock out gently at the top.",
+        ],
       },
       {
         id: 4,
-        name: "High Knees",
-        reps: "30 sec",
-        image: require("../assets/images/image3.png"),
-        howTo: "Run in place while driving your knees toward your chest.",
-        tips: ["Stay light on your feet.", "Pump your arms.", "Keep your chest up."],
+        name: "Crunches",
+        backendKey: "crunch",
+        reps: "5 reps",
+        image: require("../assets/images/crunches.jpg"),
+        howTo:
+          "Curl your shoulders upward from the floor, then return slowly.",
+        tips: [
+          "Keep neck neutral.",
+          "Exhale as you curl up.",
+          "Control the way down.",
+        ],
       },
     ],
   },
   {
     id: 4,
     title: "Abs Time",
-    description: "Target your abs and core with focused exercises",
+    description: "Core-focused session with simple AI-tracked movements",
     duration: "15 min",
     exercisesCountLabel: "3 exercises",
     tag: "Core Strength",
@@ -197,75 +232,194 @@ export const workouts: Workout[] = [
       {
         id: 1,
         name: "Crunches",
-        reps: "15 reps",
+        backendKey: "crunch",
+        reps: "5 reps",
         image: require("../assets/images/crunches.jpg"),
         howTo:
           "Lie on your back, knees bent, curl shoulders off the floor toward knees.",
-        tips: ["Do not pull on your neck.", "Exhale as you crunch.", "Lower with control."],
+        tips: [
+          "Use a side view if possible.",
+          "Do not pull on your neck.",
+          "Lower with control.",
+        ],
       },
       {
         id: 2,
-        name: "Mountain Climbers",
-        reps: "20 reps",
-        image: require("../assets/images/image3.png"),
+        name: "Push-Ups",
+        backendKey: "pushup",
+        reps: "5 reps",
+        image: require("../assets/images/image2.png"),
         howTo:
-          "Start in a high plank and alternate driving knees toward your chest.",
-        tips: ["Keep your core tight.", "Do not let your hips sag.", "Move with control."],
+          "Hold a strong plank, lower your chest, then press back up.",
+        tips: [
+          "Use a side view.",
+          "Keep core tight.",
+          "Avoid hip sag.",
+        ],
       },
       {
         id: 3,
-        name: "Glute Bridge",
-        reps: "15 reps",
-        image: require("../assets/images/image2.png"),
-        howTo: "Lie on your back, feet flat, lift hips while squeezing glutes.",
-        tips: ["Squeeze at the top.", "Keep ribs down.", "Lower slowly."],
+        name: "Squats",
+        backendKey: "squat",
+        reps: "5 reps",
+        image: require("../assets/images/squats.jpg"),
+        howTo:
+          "Stand tall, sit your hips back, then return to standing.",
+        tips: [
+          "Face the camera from the front.",
+          "Keep knees stable.",
+          "Control every rep.",
+        ],
       },
     ],
   },
   {
     id: 5,
     title: "Full Body",
-    description: "Work every muscle in this full body workout",
+    description: "A balanced full-body workout using every AI-tracked movement available",
     duration: "25 min",
-    exercisesCountLabel: "4 exercises",
+    exercisesCountLabel: "6 exercises",
     tag: "Total Body Fitness",
     image: require("../assets/images/image5.png"),
     colorGradient: ["#F6339A", "#FF2056"],
     exercises: [
       {
         id: 1,
-        name: "Push-Ups",
+        name: "Squats",
+        backendKey: "squat",
         reps: "12 reps",
-        image: require("../assets/images/image2.png"),
+        image: require("../assets/images/squats.jpg"),
         howTo:
-          "From a high plank, lower your chest toward the floor and push back up.",
-        tips: ["Body in a straight line.", "Elbows at about 45 degrees.", "Engage your core."],
+          "Stand with feet shoulder-width apart and sit back as if into a chair, then stand tall again.",
+        tips: [
+          "Face the camera from the front.",
+          "Keep your chest up.",
+          "Use controlled depth.",
+        ],
       },
       {
         id: 2,
-        name: "Burpees",
-        reps: "10 reps",
-        image: require("../assets/images/burpees.jpg"),
+        name: "Reverse Lunges",
+        backendKey: "reverse_lunge",
+        reps: "8 reps each leg",
+        image: require("../assets/images/image2.png"),
         howTo:
-          "Squat, jump to plank, push-up optional, jump back in and explode upward.",
-        tips: ["Move in a smooth flow.", "Land softly.", "Prioritize form over speed."],
+          "Step backward into a lunge, lower under control, then return to standing.",
+        tips: [
+          "Face the camera from the front.",
+          "Keep your torso tall.",
+          "Split your stance clearly.",
+        ],
       },
       {
         id: 3,
-        name: "Squats",
-        reps: "15 reps",
-        image: require("../assets/images/squats.jpg"),
+        name: "Push-Ups",
+        backendKey: "pushup",
+        reps: "5 reps",
+        image: require("../assets/images/image2.png"),
         howTo:
-          "Stand with feet shoulder-width apart and sit back as if into a chair.",
-        tips: ["Keep your chest up.", "Push through your heels.", "Control the descent."],
+          "Turn sideways to the camera. Lower your chest toward the floor, then press back up.",
+        tips: [
+          "Use a side view.",
+          "Keep shoulders, hips, and feet visible.",
+          "Keep your body in one line.",
+        ],
       },
       {
         id: 4,
+        name: "Bicep Curls",
+        backendKey: "curl",
+        reps: "5 reps",
+        image: require("../assets/images/image3.png"),
+        howTo:
+          "Stand tall and curl your hands toward your shoulders while keeping your elbows close to your body.",
+        tips: [
+          "Face the camera from the front.",
+          "Do not swing your torso.",
+          "Lower with control.",
+        ],
+      },
+      {
+        id: 5,
+        name: "Shoulder Press",
+        backendKey: "shoulder_press",
+        reps: "5 reps",
+        image: require("../assets/images/image3.png"),
+        howTo:
+          "Start with hands near shoulder level, press upward, then lower back with control.",
+        tips: [
+          "Face the camera from the front.",
+          "Keep elbows visible.",
+          "Press straight up without leaning back.",
+        ],
+      },
+      {
+        id: 6,
         name: "Crunches",
-        reps: "15 reps",
+        backendKey: "crunch",
+        reps: "3 reps",
         image: require("../assets/images/crunches.jpg"),
-        howTo: "Lie on your back, knees bent, curl shoulders off the floor.",
-        tips: ["Do not pull your neck.", "Exhale as you crunch.", "Lower slowly."],
+        howTo:
+          "Lie on your back, knees bent, and curl your shoulders upward before lowering slowly.",
+        tips: [
+          "Use a side view if possible.",
+          "Do not pull your neck.",
+          "Move slowly enough for tracking.",
+        ],
+      },
+    ],
+  },
+  {
+    id: 6,
+    title: "Lower Body",
+    description: "A lower-body session focused on legs, glutes, and clean movement control",
+    duration: "20 min",
+    exercisesCountLabel: "3 exercises",
+    tag: "Legs & Glutes",
+    image: require("../assets/images/squats.jpg"),
+    colorGradient: ["#22C55E", "#15803D"],
+    exercises: [
+      {
+        id: 1,
+        name: "Squats",
+        backendKey: "squat",
+        reps: "5 reps",
+        image: require("../assets/images/squats.jpg"),
+        howTo:
+          "Stand with feet shoulder-width apart, bend your knees, sit back, then return to standing.",
+        tips: [
+          "Face the camera from the front.",
+          "Keep knees tracking over toes.",
+          "Use controlled depth, not a forced deep squat.",
+        ],
+      },
+      {
+        id: 2,
+        name: "Reverse Lunges",
+        backendKey: "reverse_lunge",
+        reps: "5 reps",
+        image: require("../assets/images/image2.png"),
+        howTo:
+          "Step one leg backward, lower into a lunge, then push through the front foot to stand again.",
+        tips: [
+          "Face the camera from the front.",
+          "Keep your torso upright.",
+          "Make the stance clear so both knees are visible.",
+        ],
+      },
+      {
+        id: 3,
+        name: "Squats Finisher",
+        backendKey: "squat",
+        reps: "5 reps",
+        image: require("../assets/images/squats.jpg"),
+        howTo:
+          "Repeat controlled squats for a short finisher, keeping the same clean form.",
+        tips: [
+          "Slow down if tracking becomes unstable.",
+          "Stay fully in frame.",
+          "Keep reps clean rather than fast.",
+        ],
       },
     ],
   },
@@ -282,6 +436,7 @@ export const workouts: Workout[] = [
       {
         id: 1,
         name: "Bicep Curls",
+        backendKey: "curl",
         reps: "5 reps",
         image: require("../assets/images/image3.png"),
         howTo:
@@ -295,6 +450,7 @@ export const workouts: Workout[] = [
       {
         id: 2,
         name: "Shoulder Press",
+        backendKey: "shoulder_press",
         reps: "5 reps",
         image: require("../assets/images/image3.png"),
         howTo:
@@ -308,6 +464,7 @@ export const workouts: Workout[] = [
       {
         id: 3,
         name: "Push-Ups",
+        backendKey: "pushup",
         reps: "5 reps",
         image: require("../assets/images/image2.png"),
         howTo:

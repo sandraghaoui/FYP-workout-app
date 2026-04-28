@@ -35,7 +35,7 @@ export default function WorkoutExerciseScreen() {
     );
   }
 
-  const exercise: Exercise = workout.exercises[0];
+  const firstExercise: Exercise = workout.exercises[0];
   const totalExercises = workout.exercises.length;
 
   return (
@@ -45,12 +45,15 @@ export default function WorkoutExerciseScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View className="mb-4 flex-row items-center justify-between">
-          <View>
+          <View className="flex-1 pr-4">
             <Text className="text-xs text-[#9CA3AF]">
-              Exercise 1 of {totalExercises}
+              {totalExercises} exercises • {workout.duration}
             </Text>
             <Text className="mt-1 text-[22px] font-semibold text-white">
-              {exercise.name}
+              {workout.title}
+            </Text>
+            <Text className="mt-1 text-[13px] leading-5 text-[#D1D5DB]">
+              {workout.description}
             </Text>
           </View>
 
@@ -61,7 +64,7 @@ export default function WorkoutExerciseScreen() {
 
         <View className="mb-6">
           <ImageBackground
-            source={exercise.image}
+            source={firstExercise.image}
             style={{
               width: "100%",
               height: 220,
@@ -71,7 +74,7 @@ export default function WorkoutExerciseScreen() {
             imageStyle={{ borderRadius: 24 }}
           >
             <LinearGradient
-              colors={["rgba(0,0,0,0.4)", "rgba(0,0,0,0.8)"] as const}
+              colors={["rgba(0,0,0,0.25)", "rgba(0,0,0,0.85)"] as const}
               start={{ x: 0.5, y: 0 }}
               end={{ x: 0.5, y: 1 }}
               style={{
@@ -82,6 +85,14 @@ export default function WorkoutExerciseScreen() {
                 left: 0,
               }}
             />
+            <View className="absolute bottom-4 left-4 right-4">
+              <Text className="text-xs font-medium text-[#E5E7EB]">
+                First exercise
+              </Text>
+              <Text className="mt-1 text-[22px] font-bold text-white">
+                {firstExercise.name}
+              </Text>
+            </View>
             <View
               style={{
                 position: "absolute",
@@ -94,35 +105,52 @@ export default function WorkoutExerciseScreen() {
               }}
             >
               <Text className="text-sm font-semibold text-white">
-                {exercise.reps}
+                {firstExercise.reps}
               </Text>
             </View>
           </ImageBackground>
         </View>
 
         <View className="mb-[18px]">
-          <Text className="mb-2 text-[17px] font-semibold text-white">
-            How to perform
+          <Text className="mb-3 text-[17px] font-semibold text-white">
+            Workout sequence
           </Text>
-          <Text className="text-[15px] leading-6 text-[#D1D5DB]">
-            {exercise.howTo}
-          </Text>
-        </View>
 
-        <View className="mb-[18px]">
-          <Text className="mb-2 text-[17px] font-semibold text-white">
-            Form Tips
-          </Text>
-          {exercise.tips.map((tip: string, index: number) => (
-            <View key={index} className="mb-3 flex-row items-start">
-              <View className="mr-3 mt-0.5 h-6 w-6 items-center justify-center rounded-full bg-[#FF6900]">
-                <Text className="text-xs font-semibold text-white">
-                  {index + 1}
+          {workout.exercises.map((exercise: Exercise, index: number) => (
+            <View
+              key={`${exercise.backendKey}-${exercise.id}-${index}`}
+              className="mb-3 rounded-2xl border border-[rgba(148,163,184,0.16)] bg-[rgba(15,23,42,0.9)] p-4"
+            >
+              <View className="mb-2 flex-row items-center justify-between">
+                <View className="flex-row items-center">
+                  <View className="mr-3 h-8 w-8 items-center justify-center rounded-full bg-[#FF6900]">
+                    <Text className="text-xs font-bold text-white">
+                      {index + 1}
+                    </Text>
+                  </View>
+                  <View>
+                    <Text className="text-[15px] font-semibold text-white">
+                      {exercise.name}
+                    </Text>
+                  </View>
+                </View>
+                <Text className="text-sm font-semibold text-[#FBBF24]">
+                  {exercise.reps}
                 </Text>
               </View>
-              <Text className="flex-1 text-[15px] leading-6 text-[#D1D5DB]">
-                {tip}
+
+              <Text className="mb-2 text-[13px] leading-5 text-[#D1D5DB]">
+                {exercise.howTo}
               </Text>
+
+              {exercise.tips.slice(0, 2).map((tip: string, tipIndex: number) => (
+                <View key={tipIndex} className="mt-1 flex-row items-start">
+                  <Text className="mr-2 text-[#FF6900]">•</Text>
+                  <Text className="flex-1 text-xs leading-5 text-[#CBD5E1]">
+                    {tip}
+                  </Text>
+                </View>
+              ))}
             </View>
           ))}
         </View>
@@ -134,7 +162,7 @@ export default function WorkoutExerciseScreen() {
           paddingBottom: 18,
           paddingTop: 8,
           borderTopWidth: 0.5,
-          borderTopColor: "rgba(148,163,253,0.12)",
+          borderTopColor: "rgba(148,163,184,0.12)",
           backgroundColor: "#020817",
         }}
       >
@@ -155,15 +183,14 @@ export default function WorkoutExerciseScreen() {
             style={{ marginRight: 8 }}
           />
           <Text className="text-[15px] font-semibold text-white">
-            Got it! Start Exercise
+            Start Workout
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => router.back()}>
-          <Text className="text-center text-sm text-[#9CA3AF]">Skip Demo</Text>
+          <Text className="text-center text-sm text-[#9CA3AF]">Back</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 }
-
